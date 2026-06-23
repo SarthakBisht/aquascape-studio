@@ -1,0 +1,92 @@
+"use client";
+
+import { useState } from "react";
+import { useStudioStore } from "@/store/useStudioStore";
+import { PLANT_SPECIES, PLANT_CATEGORIES } from "@/data/plants";
+import { Panel, Btn, Swatch } from "./primitives";
+import type { Difficulty, PlantCategory } from "@/lib/types";
+
+const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
+const DIFF_COLOR: Record<Difficulty, string> = {
+  easy: "text-emerald-300",
+  medium: "text-amber-300",
+  hard: "text-rose-300",
+};
+
+export function PlantBrowser() {
+  const activePlantId = useStudioStore((s) => s.activePlantId);
+  const setActivePlant = useStudioStore((s) => s.setActivePlant);
+  const plants = useStudioStore((s) => s.plants);
+
+  const [cat, setCat] = useState<PlantCategory | "all">("all");
+  const [diff, setDiff] = useState<Difficulty | "all">("all");
+
+  const filtered = PLANT_SPECIES.filter(
+    (p) =>
+      (cat === "all" || p.category === cat) &&
+      (diff === "all" || p.difficulty === diff),
+  );
+
+  return (
+    <Panel title="Plants" className="flex max-h-full flex-col">
+      <div className="mb-2 flex flex-wrap gap-1">
+        <Btn active={cat === "all"} onClick={() => setCat("all")}>
+          All
+        </Btn>
+        {PLANT_CATEGORIES.map((c) => (
+          <Btn key={c.id} active={cat === c.id} onClick={() => setCat(c.id)}>
+            {c.label}
+          </Btn>
+        ))}
+      </div>
+      <div className="mb-2 flex gap-1">
+        <Btn active={diff === "all"} onClick={() => setDiff("all")}>
+          Any
+        </Btn>
+        {DIFFICULTIES.map((d) => (
+          <Btn key={d} active={diff === d} onClick={() => setDiff(d)}>
+            <span className="capitalize">{d}</span>
+          </Btn>
+        ))}
+      </div>
+
+      <div className="-mr-1 flex-1 space-y-1.5 overflow-y-auto pr-1">
+        {filtered.map((p) => {
+          const active = activePlantId === p.id;
+          return (
+            <button
+              key={p.id}
+              onClick={() => setActivePlant(active ? null : p.id)}
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
+                active ? "bg-cyan-400/20 ring-1 ring-cyan-400" : "bg-white/5 hover:bg-white/10"
+              }`}
+            >
+              <Swatch color={p.color} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium">{p.name}</div>
+                <div className="truncate text-[10px] italic text-slate-400">
+                  {p.latin}
+                </div>
+              </div>
+              <div className="text-right text-[9px] leading-tight text-slate-400">
+                <div className={`font-semibold capitalize ${DIFF_COLOR[p.difficulty]}`}>
+                  {p.difficulty}
+                </div>
+                <div>
+                  {p.light} light{p.co2 ? " · CO₂" : ""}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mt-2 text-[10px] leading-snug text-slate-400">
+        {activePlantId
+          ? "🖌️ Click in the tank to fill an area with this plant."
+          : "Select a plant, then paint it onto the substrate."}
+        <span className="ml-1 text-slate-500">({plants.length} patches)</span>
+      </p>
+    </Panel>
+  );
+}

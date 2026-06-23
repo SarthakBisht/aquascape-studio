@@ -1,0 +1,7 @@
+# pnpm 11+ reads build-script approvals here (the package.json "pnpm" field is
+# no longer honored). Without approving these, `pnpm install` aborts with
+# ERR_PNPM_IGNORED_BUILDS for native deps that need a postinstall build.
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
+  esbuild: true
