@@ -73,8 +73,9 @@ function paintPlant(e: ThreeEvent<PointerEvent>) {
       z: bz,
       y: hit ? hit.point.y : center.y,
       yaw: rand() * Math.PI * 2,
-      lean: (rand() - 0.5) * 0.25,
-      hMul: 0.7 + rand() * 0.6,
+      // strong size + lean variance so a bunch doesn't read as identical copies
+      lean: (rand() - 0.5) * 0.55,
+      hMul: 0.5 + rand() * 1.1,
     });
   }
   s.addPlantPatch(s.activePlantId, [center.x, center.y, center.z] as Vec3, blades);

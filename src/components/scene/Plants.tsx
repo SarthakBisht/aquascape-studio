@@ -121,9 +121,9 @@ function Patch({ placement }: { placement: PlantPlacement }) {
         x: Math.cos(ang) * r,
         z: Math.sin(ang) * r,
         baseY: 0,
-        h: Math.min(targetH * (0.7 + rand() * 0.6), cap),
+        h: Math.min(targetH * (0.5 + rand() * 1.1), cap),
         yaw: rand() * Math.PI * 2,
-        lean: (rand() - 0.5) * 0.25,
+        lean: (rand() - 0.5) * 0.55,
         tint: 0.82 + rand() * 0.32,
       };
     });
@@ -152,7 +152,10 @@ function Patch({ placement }: { placement: PlantPlacement }) {
       e.set(b.lean, b.yaw, b.lean * 0.5);
       q.setFromEuler(e);
       pos.set(b.x, b.baseY, b.z);
-      scl.set(b.h * widthRatio, b.h, b.h * widthRatio);
+      // mirror ~half the cards (negative X scale) so repeats of the same image
+      // don't read as identical pastes
+      const flip = b.yaw > Math.PI ? -1 : 1;
+      scl.set(b.h * widthRatio * flip, b.h, b.h * widthRatio);
       m.compose(pos, q, scl);
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, col.setScalar(b.tint));
