@@ -5,9 +5,17 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useStudioStore } from "@/store/useStudioStore";
 import type { Blade, Vec3 } from "./types";
 
+// Freehand "pen": press on a surface and drag to draw plants or substrate
+// material. Each plant blade is pre-sampled onto the real surface beneath it
+// (soil slope / stone / driftwood) so nothing floats. OrbitControls is disabled
+// whenever a brush is active (see TankScene), so dragging draws instead of
+// orbiting.
+
 const _ray = new THREE.Raycaster();
 const _down = new THREE.Vector3(0, -1, 0);
 const _origin = new THREE.Vector3();
+
+const stroke = { active: false, lastX: 0, lastZ: 0, painted: false };
 
 function sceneRoot(obj: THREE.Object3D): THREE.Object3D {
   let o = obj;
@@ -34,29 +42,23 @@ function mulberry32(seed: number) {
   };
 }
 
-/**
- * When the plant brush is active, drop a patch where a surface was clicked and
- * pre-sample each blade onto the real surface beneath it (soil slope / stone /
- * driftwood) by raycasting straight down — so nothing floats over the slope.
- * Returns true if it painted (caller skips selection).
- */
-export function paintIfActive(e: ThreeEvent<MouseEvent>): boolean {
-  const s = useStudioStore.getState();
-  if (s.mode !== "design" || s.tool !== "paint" || !s.activePlantId) return false;
-  e.stopPropagation();
+function paintableTargets(from: THREE.Object3D): THREE.Object3D[] {
+  const out: THREE.Object3D[] = [];
+  sceneRoot(from).traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh && isPaintable(m)) out.push(m);
+  });
+  return out;
+}
 
+function paintPlant(e: ThreeEvent<PointerEvent>) {
+  const s = useStudioStore.getState();
+  if (!s.activePlantId) return;
   const { radius, density } = s.brush;
   const center = e.point;
-
-  // Collect the paintable surface meshes once for this stroke.
-  const targets: THREE.Object3D[] = [];
-  sceneRoot(e.object).traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (m.isMesh && isPaintable(m)) targets.push(m);
-  });
-
-  const rand = mulberry32((center.x * 1000 + center.z) | 0 || Date.now());
-  const top = center.y + 40; // cast from above the surface
+  const targets = paintableTargets(e.object);
+  const rand = mulberry32((center.x * 1000 + center.z * 7 + Date.now()) | 0);
+  const top = center.y + 40;
   const blades: Blade[] = [];
   for (let i = 0; i < density; i++) {
     const ang = rand() * Math.PI * 2;
@@ -75,11 +77,51 @@ export function paintIfActive(e: ThreeEvent<MouseEvent>): boolean {
       hMul: 0.7 + rand() * 0.6,
     });
   }
+  s.addPlantPatch(s.activePlantId, [center.x, center.y, center.z] as Vec3, blades);
+}
 
-  s.addPlantPatch(
-    s.activePlantId,
-    [center.x, center.y, center.z] as Vec3,
-    blades,
-  );
+function paintGround(e: ThreeEvent<PointerEvent>) {
+  const s = useStudioStore.getState();
+  if (!s.activeGround) return;
+  const p = e.point;
+  s.addGroundPatch(s.activeGround, [p.x, p.y, p.z] as Vec3);
+}
+
+function paintAt(e: ThreeEvent<PointerEvent>) {
+  const s = useStudioStore.getState();
+  if (s.tool === "plant") paintPlant(e);
+  else if (s.tool === "ground") paintGround(e);
+  stroke.lastX = e.point.x;
+  stroke.lastZ = e.point.z;
+  stroke.painted = true;
+}
+
+/** Pointer down on a paintable surface — begin a stroke if a brush is active. */
+export function beginStroke(e: ThreeEvent<PointerEvent>): boolean {
+  const s = useStudioStore.getState();
+  if (s.tool === "select") return false;
+  e.stopPropagation();
+  stroke.active = true;
+  stroke.painted = false;
+  paintAt(e);
   return true;
+}
+
+/** Pointer move while drawing — drop another dab once we've moved far enough. */
+export function moveStroke(e: ThreeEvent<PointerEvent>) {
+  if (!stroke.active) return;
+  const s = useStudioStore.getState();
+  if (s.tool === "select") return;
+  const dx = e.point.x - stroke.lastX;
+  const dz = e.point.z - stroke.lastZ;
+  const spacing = Math.max(2, s.brush.radius * 0.8);
+  if (dx * dx + dz * dz >= spacing * spacing) {
+    e.stopPropagation();
+    paintAt(e);
+  }
+}
+
+/** Pointer up anywhere — end the stroke. */
+export function endStroke() {
+  stroke.active = false;
 }

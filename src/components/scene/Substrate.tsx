@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useStudioStore } from "@/store/useStudioStore";
-import { paintIfActive } from "@/lib/surfaceInteraction";
+import { beginStroke, moveStroke } from "@/lib/surfaceInteraction";
 import type { SubstrateConfig, TankDimensions } from "@/lib/types";
 
 const SUBSTRATE_LOOK: Record<
@@ -55,8 +55,9 @@ export function Substrate({
   const look = SUBSTRATE_LOOK[substrate.type];
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
-    if (paintIfActive(e)) return;
-    // a plain click on the bed clears the current selection
+    // a plain click on the bed clears the current selection (paint is handled
+    // by the stroke engine on pointer down/move)
+    if (useStudioStore.getState().tool !== "select") return;
     e.stopPropagation();
     useStudioStore.getState().selectItem(null);
   };
@@ -65,8 +66,10 @@ export function Substrate({
     <mesh
       geometry={geometry}
       receiveShadow
-      onClick={onClick}
       userData={{ paintable: true }}
+      onPointerDown={beginStroke}
+      onPointerMove={moveStroke}
+      onClick={onClick}
     >
       <meshStandardMaterial
         color={look.color}

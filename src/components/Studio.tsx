@@ -9,10 +9,12 @@ import { TankScene } from "./scene/TankScene";
 import { Toolbar } from "./ui/Toolbar";
 import { TankPanel } from "./ui/TankPanel";
 import { HardscapePalette } from "./ui/HardscapePalette";
+import { DrawPanel } from "./ui/DrawPanel";
 import { BackgroundPanel } from "./ui/BackgroundPanel";
 import { PlantBrowser } from "./ui/PlantBrowser";
 import { SelectionBar } from "./ui/SelectionBar";
 import { isBrightBackground } from "@/data/backgrounds";
+import { endStroke } from "@/lib/surfaceInteraction";
 import type { Quality } from "@/lib/types";
 
 const DPR: Record<Quality, [number, number]> = {
@@ -34,6 +36,13 @@ export function Studio() {
   // WebGL only mounts on the client — avoids SSR/window issues.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // End a draw stroke whenever the pointer is released, even off the canvas.
+  useEffect(() => {
+    const up = () => endStroke();
+    window.addEventListener("pointerup", up);
+    return () => window.removeEventListener("pointerup", up);
+  }, []);
 
   const onScreenshot = () => {
     if (canvasRef.current) screenshotCanvas(canvasRef.current);
@@ -95,6 +104,7 @@ export function Studio() {
           <div className="calm-scroll flex w-64 flex-col gap-3 overflow-y-auto pr-0.5">
             <TankPanel />
             <HardscapePalette />
+            <DrawPanel />
             <BackgroundPanel />
           </div>
           <div className="flex-1" />

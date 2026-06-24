@@ -6,7 +6,7 @@ import { Clone, Outlines, TransformControls, useGLTF } from "@react-three/drei";
 import { useStudioStore } from "@/store/useStudioStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { makeRockGeometry } from "@/lib/proceduralRock";
-import { paintIfActive } from "@/lib/surfaceInteraction";
+import { beginStroke, moveStroke } from "@/lib/surfaceInteraction";
 import type { HardscapeItem, Vec3 } from "@/lib/types";
 
 // Real scanned .glb hardscape, normalized to a unit footprint and seated on the
@@ -79,9 +79,11 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
         rotation={item.rotation}
         scale={item.scale}
         userData={{ paintable: true }}
+        onPointerDown={beginStroke}
+        onPointerMove={moveStroke}
         onClick={(e) => {
           if (!editable) return;
-          if (paintIfActive(e)) return; // plant onto this rock/wood surface
+          if (useStudioStore.getState().tool !== "select") return; // brush active → drawing
           e.stopPropagation();
           selectItem(item.id);
         }}

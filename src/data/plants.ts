@@ -16,6 +16,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [2, 4],
     color: "#5fae45",
+    texture: "/plants/monte-carlo.png",
   },
   {
     id: "dwarf-hairgrass",

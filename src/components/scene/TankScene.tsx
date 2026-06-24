@@ -7,6 +7,7 @@ import { Lighting } from "./Lighting";
 import { Backdrop } from "./Backdrop";
 import { GlassTank } from "./GlassTank";
 import { Substrate } from "./Substrate";
+import { GroundCover } from "./GroundCover";
 import { Hardscape } from "./Hardscape";
 import { Plants } from "./Plants";
 import { Water } from "./Water";
@@ -19,6 +20,7 @@ export function TankScene() {
   const background = useStudioStore((s) => s.background);
   const mode = useStudioStore((s) => s.mode);
   const showGuides = useStudioStore((s) => s.showGuides);
+  const tool = useStudioStore((s) => s.tool);
 
   const underwater = mode === "underwater";
   const center = tankCenter(tank);
@@ -39,6 +41,7 @@ export function TankScene() {
           on the soil, a stone, or driftwood (deselect is handled by the
           Canvas onPointerMissed). */}
       <Substrate dims={tank} substrate={substrate} />
+      <GroundCover />
       <Hardscape />
       <Plants />
       {underwater && <Water dims={tank} />}
@@ -46,8 +49,10 @@ export function TankScene() {
       <GlassTank dims={tank} />
       {showGuides && mode === "design" && <CompositionGuides dims={tank} />}
 
+      {/* Disable orbit while a brush is active so dragging draws, not rotates. */}
       <OrbitControls
         makeDefault
+        enabled={tool === "select"}
         target={center}
         enableDamping
         maxPolarAngle={Math.PI / 2 + 0.2}

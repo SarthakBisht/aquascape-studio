@@ -132,6 +132,16 @@ export interface PlantPlacement {
   blades?: Blade[];
 }
 
+/** A drawn patch of substrate material (e.g. a sand path) laid level on the soil. */
+export interface GroundPatch {
+  id: string;
+  type: SubstrateType;
+  /** Center on the surface that was painted. */
+  position: Vec3;
+  /** Patch radius in cm. */
+  radius: number;
+}
+
 export type AquascapeStyle = "iwagumi" | "nature" | "dutch";
 
 export interface StylePreset {
@@ -168,5 +178,6 @@ export interface Layout {
   style: AquascapeStyle | null;
   hardscape: HardscapeItem[];
   plants: PlantPlacement[];
+  ground?: GroundPatch[];
   background?: BackgroundConfig;
 }

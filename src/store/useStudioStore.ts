@@ -4,11 +4,13 @@ import type {
   AquascapeStyle,
   BackgroundConfig,
   Blade,
+  GroundPatch,
   HardscapeItem,
   Layout,
   PlantPlacement,
   Quality,
   SubstrateConfig,
+  SubstrateType,
   TankDimensions,
   TransformMode,
   Vec3,
@@ -50,6 +52,7 @@ interface StudioState {
   style: AquascapeStyle | null;
   hardscape: HardscapeItem[];
   plants: PlantPlacement[];
+  ground: GroundPatch[];
   background: BackgroundConfig;
 
   // ---- persisted view settings ----
@@ -66,8 +69,9 @@ interface StudioState {
   // ---- transient editor state (not persisted) ----
   selectedId: string | null;
   transformMode: TransformMode;
-  activePlantId: string | null; // species "loaded" for painting
-  tool: "select" | "paint";
+  activePlantId: string | null; // species "loaded" for the plant brush
+  activeGround: SubstrateType | null; // material "loaded" for the draw brush
+  tool: "select" | "plant" | "ground";
 
   // ---- actions ----
   setTank: (dims: TankDimensions) => void;
@@ -84,10 +88,12 @@ interface StudioState {
   setTransformMode: (mode: TransformMode) => void;
 
   setActivePlant: (speciesId: string | null) => void;
-  setTool: (tool: "select" | "paint") => void;
+  setActiveGround: (type: SubstrateType | null) => void;
+  setTool: (tool: "select" | "plant" | "ground") => void;
   setBrush: (patch: Partial<StudioState["brush"]>) => void;
   addPlantPatch: (speciesId: string, position: Vec3, blades?: Blade[]) => void;
   removePlant: (id: string) => void;
+  addGroundPatch: (type: SubstrateType, position: Vec3) => void;
 
   setMode: (mode: ViewMode) => void;
   setQuality: (q: Quality) => void;
@@ -108,6 +114,7 @@ export const useStudioStore = create<StudioState>()(
       style: null,
       hardscape: [],
       plants: [],
+      ground: [],
       background: DEFAULT_BACKGROUND,
 
       mode: "design",
@@ -121,6 +128,7 @@ export const useStudioStore = create<StudioState>()(
       selectedId: null,
       transformMode: "translate",
       activePlantId: null,
+      activeGround: null,
       tool: "select",
 
       setTank: (dims) => set({ tank: dims }),
@@ -174,10 +182,22 @@ export const useStudioStore = create<StudioState>()(
       setActivePlant: (speciesId) =>
         set((s) => ({
           activePlantId: speciesId,
-          tool: speciesId ? "paint" : "select",
+          activeGround: null,
+          tool: speciesId ? "plant" : "select",
           selectedId: speciesId ? null : s.selectedId,
         })),
-      setTool: (tool) => set({ tool }),
+      setActiveGround: (type) =>
+        set((s) => ({
+          activeGround: type,
+          activePlantId: null,
+          tool: type ? "ground" : "select",
+          selectedId: type ? null : s.selectedId,
+        })),
+      setTool: (tool) =>
+        set({
+          tool,
+          ...(tool === "select" ? { activePlantId: null, activeGround: null } : {}),
+        }),
       setBrush: (patch) => set((s) => ({ brush: { ...s.brush, ...patch } })),
       addPlantPatch: (speciesId, position, blades) => {
         const { radius, density, scale } = get().brush;
@@ -194,6 +214,15 @@ export const useStudioStore = create<StudioState>()(
       },
       removePlant: (id) =>
         set((s) => ({ plants: s.plants.filter((p) => p.id !== id) })),
+      addGroundPatch: (type, position) => {
+        const patch: GroundPatch = {
+          id: genId(),
+          type,
+          position,
+          radius: get().brush.radius,
+        };
+        set((s) => ({ ground: [...s.ground, patch] }));
+      },
 
       setMode: (mode) => set({ mode, selectedId: null }),
       setQuality: (q) => set({ quality: q }),
@@ -208,6 +237,7 @@ export const useStudioStore = create<StudioState>()(
           style: layout.style,
           hardscape: layout.hardscape,
           plants: layout.plants,
+          ground: layout.ground ?? [],
           background: layout.background ?? DEFAULT_BACKGROUND,
           selectedId: null,
         }),
@@ -220,6 +250,7 @@ export const useStudioStore = create<StudioState>()(
           style: s.style,
           hardscape: s.hardscape,
           plants: s.plants,
+          ground: s.ground,
           background: s.background,
         };
       },
@@ -230,6 +261,7 @@ export const useStudioStore = create<StudioState>()(
           style: null,
           hardscape: [],
           plants: [],
+          ground: [],
           background: DEFAULT_BACKGROUND,
           selectedId: null,
         }),
@@ -246,6 +278,7 @@ export const useStudioStore = create<StudioState>()(
         style: s.style,
         hardscape: s.hardscape,
         plants: s.plants,
+        ground: s.ground,
         background: s.background,
         mode: s.mode,
         quality: s.quality,
