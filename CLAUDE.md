@@ -8,6 +8,21 @@ it, then flood the tank for an underwater view with swaying plants and swimming
 fish. Throwaway MVP — optimize for the "looks real enough to be compelling"
 wow factor, not production hardening.
 
+> **Heads-up:** this folder is also part of the `MVPs` workspace and inherits
+> `../CLAUDE.md`. If you opened **this repo standalone**, that parent isn't
+> loaded — the essentials are restated under "Environment" below.
+
+## Environment
+- **OS: Windows 11; default shell is PowerShell** — use PowerShell syntax
+  (`$env:VAR`, `;` chaining, `2>&1 | Out-String`). A Bash tool is available for
+  POSIX scripts, but `cd` doesn't persist between calls — use absolute paths.
+- **Package manager: `pnpm`** (do not switch to npm/yarn).
+- **Guardrails:** never commit `.env`/secrets; don't run destructive commands
+  (`rm -rf`, `git reset --hard`, force-push) or `git push` without explicit
+  confirmation; keep `README.md` + this file up to date as the app changes.
+- **Git:** repo-local identity is set (Sarthak / trendnovayt@gmail.com).
+  Remote `origin` → https://github.com/SarthakBisht/aquascape-studio (public).
+
 ## Stack
 - **Next.js 16 (App Router) + React 19 + TypeScript (strict)**, Tailwind CSS v4.
 - **3D:** `@react-three/fiber` v9 + `@react-three/drei` v10 + `three` 0.184
@@ -43,7 +58,7 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   └─ <Canvas> → <TankScene>
        ├─ Lighting · GlassTank · Substrate                 (always)
        ├─ Hardscape  → HardscapeMesh (procedural rock geo + TransformControls)
-       ├─ Plants     → Patch (instanced billboard blades, paint-to-fill)
+       ├─ Plants     → Patch (instanced crossed-billboard cards, paint-to-fill)
        ├─ Water · Fish                                      (underwater mode)
        ├─ CompositionGuides                                 (design mode + toggle)
        └─ ground click-catcher (deselect / paint) + OrbitControls(makeDefault)
@@ -51,7 +66,9 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 ```
 - **`useStudioStore`** is the single source of truth: tank dims, substrate,
   style, `hardscape[]`, `plants[]`, plus view settings (`mode`, `quality`,
-  `showGuides`, `grownIn`). `getLayout()`/`loadLayout()` back export/import.
+  `showGuides`, `grownIn`) and the plant `brush` (`radius`/`density`/`scale`
+  applied to newly painted patches). `getLayout()`/`loadLayout()` back
+  export/import.
 - **Procedural hardscape** (`src/lib/proceduralRock.ts`): a seed → a deformed
   icosahedron. Only the `seed` is persisted, so layouts stay tiny. "Regenerate"
   just rolls a new seed.
@@ -97,3 +114,22 @@ wandering fish + patch sway), export/import + screenshot.
    per-blade vertex-shader sway.
 6. Back-glass background image/color; sketch-to-3D rock drawing; accounts/
    sharing gallery; mobile/touch.
+
+## Status & product direction
+- **Done so far:** full scaffold + the plant realism pass (cones → crossed
+  photographic billboards with a paint brush and a drop-in PNG upgrade path).
+  `pnpm build` + `tsc --noEmit` pass; pushed to GitHub (public).
+- **Reference product:** [scape-it.io](https://scape-it.io/) — note it's a
+  **2.5D** front-view photographic compositor (mirror button, "plant graphics",
+  perspective tilt), *not* a real 3D engine. Our deliberate **differentiator** is
+  true 3D: orbit + underwater + fish, which it can't do.
+- **Chosen direction (locked):** stay 3D but use **photographic billboards** for
+  plants and (next) **scanned glTF models** for hardscape — photoreal *and*
+  walk-around. Assets are **CC0-curated first** (Poly Haven / Quaternius /
+  Sketchfab CC0), bundled locally under `public/`.
+- **Next focus (pick one):** hardscape customization (real scanned rock/wood +
+  per-piece scale/texture/rotate + snap-stacking) **or** underwater realism
+  (caustics, god rays, animated surface, schooling boids).
+- **#1 asset unlock:** transparent-background cutout PNGs of real aquatic plants
+  (drop into `public/plants/<id>.png`, set `texture` on the species). See
+  `public/ASSETS.md`.

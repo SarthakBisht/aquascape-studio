@@ -16,8 +16,11 @@ design a hardscape + planting layout, orbit around it from any angle, then
   duplicate, **regenerate** (new random shape), and delete. Data-driven, so new
   materials are a one-line addition.
 - **Plants** — a classified, filterable browser (category · difficulty · light ·
-  CO₂). Select a species, then **click the substrate to paint** a correctly
-  scaled & colored patch.
+  CO₂). Select a species, then **click the substrate to paint** a patch of
+  **crossed photographic billboards** (real leaf silhouettes per plant form, not
+  grass-cones), correctly scaled & colored. A **brush** controls area / density /
+  size. Drop a cutout PNG into `public/plants/` to upgrade any species to a real
+  photo (see [public/ASSETS.md](public/ASSETS.md)).
 - **Composition help** — rule-of-thirds grid + golden-ratio markers, and
   Iwagumi / Nature / Dutch style hints.
 - **Underwater mode** — flood the tank: tinted water, depth fog, and fish
