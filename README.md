@@ -26,6 +26,10 @@ design a hardscape + planting layout, orbit around it from any angle, then
   Plants always rest on the surface you clicked. A **brush** controls area /
   density / size. Drop a cutout PNG into `public/plants/` to upgrade any species
   to a real photo (see [public/ASSETS.md](public/ASSETS.md)).
+- **Bring your own plant photo** — drag an image onto a plant in the browser (or
+  click **＋ img**); an **in-browser AI** removes the background and uses the
+  cutout as that plant's look (saved per species). Plants without an image are
+  highlighted.
 - **Draw tool** — a freehand pen: pick a plant or a substrate material (sand /
   gravel / soil) and **drag** on the tank to paint. Plants seat on the surface
   slope; material draws as level patches. Orbit pauses while you draw.

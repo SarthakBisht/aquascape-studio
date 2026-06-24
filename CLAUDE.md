@@ -28,6 +28,8 @@ wow factor, not production hardening.
 - **3D:** `@react-three/fiber` v9 + `@react-three/drei` v10 + `three` 0.184
   (+ `@react-three/postprocessing` for the planned underwater effects).
 - **State:** `zustand` v5 with the `persist` middleware (localStorage).
+- **In-browser AI:** `@imgly/background-removal` (lazy-loaded) strips the
+  background from dropped plant photos client-side — no server.
 - **No backend / db / auth.** Everything runs client-side; layouts persist to
   localStorage and export/import as `.aquascape.json`.
 
@@ -91,7 +93,14 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   blades are sampled per-blade onto the surface (slope/stone/wood); material
   patches (`ground[]`, rendered by `GroundCover`) are laid level. OrbitControls
   is disabled while a brush is active (`enabled={tool === "select"}`) so dragging
-  draws; deselect/stop via `onPointerMissed` or the DrawPanel stop button. Patches render as **crossed billboard
+  draws; deselect/stop via `onPointerMissed` or the DrawPanel stop button.
+- **Custom plant images:** drop (or pick) a photo onto a plant row in
+  `PlantBrowser` → `processPlantImage` (`src/lib/plantImage.ts`) removes the
+  background with the in-browser AI model and returns a downscaled PNG data URL →
+  stored per species in `customPlantTextures` (persisted) → `Plants.tsx` feeds it
+  to `usePlantTexture`, rendering it **untinted** (`color="#fff"`) and
+  aspect-correct. Built-in `species.texture` paths work the same way. Rows
+  without an image highlight the "＋ img" affordance. Patches render as **crossed billboard
   cards** (`src/components/scene/Plants.tsx`) textured per plant *form* by
   `src/lib/plantTextures.ts` — procedurally drawn leaf silhouettes by default,
   auto-swapped for a real cutout PNG when a species sets `texture`. Heights are
@@ -114,7 +123,8 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 sand/gravel), configurable **backdrop** (black/white/blue/gradient/backlit-glow,
 painted into scene.background so it fills cleanly), procedural rocks + driftwood
 (or drop-in `.glb` models) with transform + stacking, plant browser with filters
-+ **paint-onto-surface** billboards (blades seated on the slope/stones), a
++ **paint-onto-surface** billboards (blades seated on the slope/stones) +
+**drop-your-own-photo** plants (AI background removal), a
 freehand **draw tool** (drag to paint plants or level sand/gravel/soil patches),
 composition guides + style presets, grown-in toggle, quality slider, orbit
 camera, **underwater mode** (subtle tank-only water, overhead light glare,

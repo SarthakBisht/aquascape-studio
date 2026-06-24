@@ -55,6 +55,8 @@ interface StudioState {
   plants: PlantPlacement[];
   ground: GroundPatch[];
   background: BackgroundConfig;
+  /** Per-species custom billboard image (speciesId → PNG data URL). */
+  customPlantTextures: Record<string, string>;
 
   // ---- persisted view settings ----
   mode: ViewMode;
@@ -97,6 +99,8 @@ interface StudioState {
   setBrush: (patch: Partial<StudioState["brush"]>) => void;
   addPlantPatch: (speciesId: string, position: Vec3, blades?: Blade[]) => void;
   removePlant: (id: string) => void;
+  setPlantTexture: (speciesId: string, dataUrl: string) => void;
+  clearPlantTexture: (speciesId: string) => void;
   addGroundPatch: (type: SubstrateType, position: Vec3) => void;
 
   setMode: (mode: ViewMode) => void;
@@ -121,6 +125,7 @@ export const useStudioStore = create<StudioState>()(
       plants: [],
       ground: [],
       background: DEFAULT_BACKGROUND,
+      customPlantTextures: {},
 
       mode: "design",
       quality: "medium",
@@ -221,6 +226,16 @@ export const useStudioStore = create<StudioState>()(
       },
       removePlant: (id) =>
         set((s) => ({ plants: s.plants.filter((p) => p.id !== id) })),
+      setPlantTexture: (speciesId, dataUrl) =>
+        set((s) => ({
+          customPlantTextures: { ...s.customPlantTextures, [speciesId]: dataUrl },
+        })),
+      clearPlantTexture: (speciesId) =>
+        set((s) => {
+          const next = { ...s.customPlantTextures };
+          delete next[speciesId];
+          return { customPlantTextures: next };
+        }),
       addGroundPatch: (type, position) => {
         const patch: GroundPatch = {
           id: genId(),
@@ -288,6 +303,7 @@ export const useStudioStore = create<StudioState>()(
         plants: s.plants,
         ground: s.ground,
         background: s.background,
+        customPlantTextures: s.customPlantTextures,
         mode: s.mode,
         quality: s.quality,
         showGuides: s.showGuides,

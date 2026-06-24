@@ -68,8 +68,18 @@ function Patch({ placement }: { placement: PlantPlacement }) {
   const tankHeight = useStudioStore((s) => s.tank.height);
   const species = getSpecies(placement.speciesId);
 
-  const texture = usePlantTexture(species?.form ?? "blade", species?.texture);
-  const widthRatio = FORM_WIDTH[species?.form ?? "blade"];
+  const customTex = useStudioStore((s) =>
+    species ? s.customPlantTextures[species.id] : undefined,
+  );
+  const url = customTex ?? species?.texture;
+  const texture = usePlantTexture(species?.form ?? "blade", url);
+  const hasImage = !!url;
+  // A real photo is sized to the image aspect (so it isn't stretched); the
+  // procedural silhouette uses the per-form ratio.
+  const img = texture.image as { width?: number; height?: number } | undefined;
+  const aspect =
+    hasImage && img?.width && img?.height ? img.width / img.height : null;
+  const widthRatio = aspect ?? FORM_WIDTH[species?.form ?? "blade"];
   const userScale = placement.scale ?? 1;
   const baseWorldY = placement.position[1];
 
@@ -165,7 +175,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
       <instancedMesh key={count} ref={ref} args={[CROSS_GEO, undefined, count]}>
         <meshStandardMaterial
           map={texture}
-          color={species?.color ?? "#4f9a3f"}
+          color={hasImage ? "#ffffff" : (species?.color ?? "#4f9a3f")}
           side={THREE.DoubleSide}
           alphaTest={0.5}
           roughness={0.75}

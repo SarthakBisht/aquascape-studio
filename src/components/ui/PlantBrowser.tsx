@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { PLANT_SPECIES, PLANT_CATEGORIES } from "@/data/plants";
+import { processPlantImage } from "@/lib/plantImage";
 import { Panel, Btn, Swatch } from "./primitives";
-import type { Difficulty, PlantCategory } from "@/lib/types";
+import type { Difficulty, PlantCategory, PlantSpecies } from "@/lib/types";
 
 const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
 const DIFF_COLOR: Record<Difficulty, string> = {
@@ -50,6 +51,123 @@ function BrushSlider({
   );
 }
 
+function PlantRow({
+  species,
+  active,
+  onSelect,
+}: {
+  species: PlantSpecies;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const custom = useStudioStore((s) => s.customPlantTextures[species.id]);
+  const setPlantTexture = useStudioStore((s) => s.setPlantTexture);
+  const clearPlantTexture = useStudioStore((s) => s.clearPlantTexture);
+
+  const [dragOver, setDragOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const thumb = custom ?? species.texture;
+  const hasImage = !!thumb;
+
+  async function handleFile(file?: File) {
+    if (!file || !file.type.startsWith("image/")) return;
+    setBusy(true);
+    setProgress(0);
+    try {
+      const url = await processPlantImage(file, setProgress);
+      setPlantTexture(species.id, url);
+    } catch (e) {
+      alert(`Couldn't process that image: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={onSelect}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        handleFile(e.dataTransfer.files?.[0]);
+      }}
+      className={`relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
+        active ? "bg-moss/20 ring-1 ring-moss" : "bg-mist/[0.05] hover:bg-mist/[0.1]"
+      } ${dragOver ? "ring-1 ring-moss-bright" : ""}`}
+    >
+      {thumb ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumb}
+          alt=""
+          className="h-6 w-6 shrink-0 rounded object-cover ring-1 ring-mist/15"
+        />
+      ) : (
+        <Swatch color={species.color} />
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-xs font-medium">{species.name}</div>
+        <div className="truncate text-[10px] italic text-stone">
+          {species.latin}
+        </div>
+      </div>
+
+      <div
+        className="flex items-center gap-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {custom && (
+          <button
+            onClick={() => clearPlantTexture(species.id)}
+            title="Remove custom image"
+            className="rounded px-1 text-[11px] text-stone hover:text-rose-300"
+          >
+            ✕
+          </button>
+        )}
+        <button
+          onClick={() => fileRef.current?.click()}
+          title="Use your own plant photo (background removed automatically)"
+          className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+            hasImage
+              ? "text-stone hover:text-moss"
+              : "text-moss ring-1 ring-moss/40 hover:bg-moss/15"
+          }`}
+        >
+          {hasImage ? "↺ img" : "＋ img"}
+        </button>
+      </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          handleFile(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+
+      {busy && (
+        <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-md bg-soil/85 text-[10px] text-moss">
+          <span className="h-3 w-3 animate-spin rounded-full border border-moss border-t-transparent" />
+          removing background… {Math.round(progress * 100)}%
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PlantBrowser() {
   const activePlantId = useStudioStore((s) => s.activePlantId);
   const setActivePlant = useStudioStore((s) => s.setActivePlant);
@@ -89,68 +207,29 @@ export function PlantBrowser() {
         ))}
       </div>
 
-      <div className="-mr-1 flex-1 space-y-1.5 overflow-y-auto pr-1">
-        {filtered.map((p) => {
-          const active = activePlantId === p.id;
-          return (
-            <button
-              key={p.id}
-              onClick={() => setActivePlant(active ? null : p.id)}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
-                active ? "bg-moss/20 ring-1 ring-moss" : "bg-mist/[0.05] hover:bg-mist/[0.1]"
-              }`}
-            >
-              <Swatch color={p.color} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-medium">{p.name}</div>
-                <div className="truncate text-[10px] italic text-stone">
-                  {p.latin}
-                </div>
-              </div>
-              <div className="text-right text-[9px] leading-tight text-stone">
-                <div className={`font-semibold capitalize ${DIFF_COLOR[p.difficulty]}`}>
-                  {p.difficulty}
-                </div>
-                <div>
-                  {p.light} light{p.co2 ? " · CO₂" : ""}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+      <div
+        className="-mr-1 flex-1 space-y-1.5 overflow-y-auto pr-1"
+        onDragOver={(e) => e.preventDefault()}
+      >
+        {filtered.map((p) => (
+          <PlantRow
+            key={p.id}
+            species={p}
+            active={activePlantId === p.id}
+            onSelect={() =>
+              setActivePlant(activePlantId === p.id ? null : p.id)
+            }
+          />
+        ))}
       </div>
 
       <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
         <div className="mb-1 text-[10px] uppercase tracking-wide text-stone">
           Brush
         </div>
-        <BrushSlider
-          label="Area"
-          value={brush.radius}
-          min={2}
-          max={20}
-          step={1}
-          suffix="cm"
-          onChange={(v) => setBrush({ radius: v })}
-        />
-        <BrushSlider
-          label="Density"
-          value={brush.density}
-          min={6}
-          max={60}
-          step={2}
-          suffix=""
-          onChange={(v) => setBrush({ density: v })}
-        />
-        <BrushSlider
-          label="Size"
-          value={brush.scale}
-          min={0.5}
-          max={2}
-          step={0.1}
-          suffix="×"
-          onChange={(v) => setBrush({ scale: v })}
-        />
+        <BrushSlider label="Area" value={brush.radius} min={2} max={20} step={1} suffix="cm" onChange={(v) => setBrush({ radius: v })} />
+        <BrushSlider label="Density" value={brush.density} min={6} max={60} step={2} suffix="" onChange={(v) => setBrush({ density: v })} />
+        <BrushSlider label="Size" value={brush.scale} min={0.5} max={2} step={0.1} suffix="×" onChange={(v) => setBrush({ scale: v })} />
       </div>
 
       <p className="mt-2 text-[10px] leading-snug text-stone">
@@ -158,6 +237,10 @@ export function PlantBrowser() {
           ? "🖌️ Click in the tank to fill an area with this plant."
           : "Select a plant, then paint it onto the substrate."}
         <span className="ml-1 text-stone/70">({plants.length} patches)</span>
+      </p>
+      <p className="mt-1 text-[10px] leading-snug text-stone/70">
+        Tip: drag a photo onto a plant (or “＋ img”) to use your own — the
+        background is removed automatically. Highlighted plants have no image yet.
       </p>
     </Panel>
   );
