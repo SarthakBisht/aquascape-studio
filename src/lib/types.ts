@@ -155,6 +155,19 @@ export interface StylePreset {
 
 export type Quality = "low" | "medium" | "high";
 export type ViewMode = "design" | "underwater";
+
+export type FishPattern = "school" | "calm" | "dart" | "scatter";
+export type FishPalette = "tropical" | "neon" | "natural" | "mono";
+
+export interface FishConfig {
+  count: number;
+  /** Body size multiplier. */
+  size: number;
+  /** Swim speed multiplier. */
+  speed: number;
+  pattern: FishPattern;
+  palette: FishPalette;
+}
 export type TransformMode = "translate" | "rotate" | "scale";
 
 /** The tank's backdrop — the panel behind the back glass. */

@@ -11,6 +11,8 @@ import { GroundCover } from "./GroundCover";
 import { Hardscape } from "./Hardscape";
 import { Plants } from "./Plants";
 import { Water } from "./Water";
+import { Caustics } from "./Caustics";
+import { Bubbles } from "./Bubbles";
 import { Fish } from "./Fish";
 import { CompositionGuides } from "./CompositionGuides";
 
@@ -38,7 +40,9 @@ export function TankScene() {
       <GroundCover />
       <Hardscape />
       <Plants />
+      {underwater && <Caustics dims={tank} substrate={substrate} />}
       {underwater && <Water dims={tank} />}
+      {underwater && <Bubbles dims={tank} substrate={substrate} />}
       {underwater && <Fish dims={tank} substrate={substrate} />}
       <GlassTank dims={tank} />
       {showGuides && mode === "design" && <CompositionGuides dims={tank} />}

@@ -12,6 +12,7 @@ import { HardscapePalette } from "./ui/HardscapePalette";
 import { DrawPanel } from "./ui/DrawPanel";
 import { BackgroundPanel } from "./ui/BackgroundPanel";
 import { PlantBrowser } from "./ui/PlantBrowser";
+import { FishPanel } from "./ui/FishPanel";
 import { SelectionBar } from "./ui/SelectionBar";
 import { isBrightBackground } from "@/data/backgrounds";
 import { endStroke } from "@/lib/surfaceInteraction";
@@ -26,6 +27,7 @@ const DPR: Record<Quality, [number, number]> = {
 export function Studio() {
   const tank = useStudioStore((s) => s.tank);
   const quality = useStudioStore((s) => s.quality);
+  const mode = useStudioStore((s) => s.mode);
   const zen = useStudioStore((s) => s.zen);
   const bright = useStudioStore((s) => isBrightBackground(s.background));
   const empty = useStudioStore(
@@ -109,7 +111,7 @@ export function Studio() {
           </div>
           <div className="flex-1" />
           <div className="flex max-h-full w-64 flex-col">
-            <PlantBrowser />
+            {mode === "underwater" ? <FishPanel /> : <PlantBrowser />}
           </div>
         </div>
         <div

@@ -4,6 +4,7 @@ import type {
   AquascapeStyle,
   BackgroundConfig,
   Blade,
+  FishConfig,
   GroundPatch,
   HardscapeItem,
   Layout,
@@ -63,6 +64,9 @@ interface StudioState {
   /** Zen mode dissolves the interface so only the scape remains. Transient. */
   zen: boolean;
 
+  /** Fish look & behaviour (underwater mode). */
+  fish: FishConfig;
+
   // ---- plant brush (size/density of newly painted patches) ----
   brush: { radius: number; density: number; scale: number };
 
@@ -100,6 +104,7 @@ interface StudioState {
   toggleGuides: () => void;
   setGrownIn: (on: boolean) => void;
   toggleZen: () => void;
+  setFish: (patch: Partial<FishConfig>) => void;
 
   loadLayout: (layout: Layout) => void;
   getLayout: () => Layout;
@@ -122,6 +127,8 @@ export const useStudioStore = create<StudioState>()(
       showGuides: true,
       grownIn: false,
       zen: false,
+
+      fish: { count: 14, size: 1, speed: 1, pattern: "school", palette: "tropical" },
 
       brush: { radius: 6, density: 24, scale: 1 },
 
@@ -229,6 +236,7 @@ export const useStudioStore = create<StudioState>()(
       toggleGuides: () => set((s) => ({ showGuides: !s.showGuides })),
       setGrownIn: (on) => set({ grownIn: on }),
       toggleZen: () => set((s) => ({ zen: !s.zen, selectedId: null })),
+      setFish: (patch) => set((s) => ({ fish: { ...s.fish, ...patch } })),
 
       loadLayout: (layout) =>
         set({
@@ -284,6 +292,7 @@ export const useStudioStore = create<StudioState>()(
         quality: s.quality,
         showGuides: s.showGuides,
         grownIn: s.grownIn,
+        fish: s.fish,
         brush: s.brush,
       }),
     },

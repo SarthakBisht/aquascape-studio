@@ -59,12 +59,12 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        ├─ Lighting · Backdrop · GlassTank · Substrate      (always)
        ├─ Hardscape  → HardscapeMesh (procedural rock geo OR .glb model + gizmo)
        ├─ Plants     → Patch (instanced crossed-billboard cards, paint-to-fill)
-       ├─ Water · Fish                                      (underwater mode)
+       ├─ Caustics · Water · Bubbles · Fish                 (underwater mode)
        ├─ CompositionGuides                                 (design mode + toggle)
        └─ OrbitControls(makeDefault); paint raycasts Substrate/Hardscape,
           deselect via Canvas onPointerMissed
-  └─ UI overlay: Toolbar · TankPanel · HardscapePalette · BackgroundPanel ·
-     PlantBrowser · SelectionBar
+  └─ UI overlay: Toolbar · TankPanel · HardscapePalette · DrawPanel ·
+     BackgroundPanel · (PlantBrowser in design / FishPanel underwater) · SelectionBar
 ```
 - **`useStudioStore`** is the single source of truth: tank dims, substrate,
   style, `hardscape[]`, `plants[]`, plus view settings (`mode`, `quality`,
@@ -117,8 +117,10 @@ painted into scene.background so it fills cleanly), procedural rocks + driftwood
 + **paint-onto-surface** billboards (blades seated on the slope/stones), a
 freehand **draw tool** (drag to paint plants or level sand/gravel/soil patches),
 composition guides + style presets, grown-in toggle, quality slider, orbit
-camera, **underwater mode** (subtle tank-only water, overhead light glare, fish
-that school and steer off the glass), export/import + screenshot.
+camera, **underwater mode** (subtle tank-only water, overhead light glare,
+animated caustics + bubbles, and **fish you control** — count/size/colour
+palette/swim pattern [school·calm·dart·scatter]/speed — that flock and steer off
+the glass), export/import + screenshot.
 
 **Deferred (next milestones):**
 1. Real scanned glTF hardscape + PBR textures + HDRI environment (realism).

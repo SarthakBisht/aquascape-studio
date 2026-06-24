@@ -32,8 +32,10 @@ design a hardscape + planting layout, orbit around it from any angle, then
 - **Composition help** — rule-of-thirds grid + golden-ratio markers, and
   Iwagumi / Nature / Dutch style hints.
 - **Underwater mode** — flood the tank with **subtle, near-transparent water**
-  (only the tank), a soft **glare from the overhead light**, and **fish** that
-  school and turn smoothly off the glass; plants sway.
+  (only the tank), a soft **glare from the overhead light**, **caustics** on the
+  substrate, drifting **bubbles**, and **fish you control** (count, size, color
+  palette, swim pattern — school / calm / dart / scatter — and speed) that flock
+  and turn smoothly off the glass; plants sway.
 - **Camera** — orbit / zoom / pan around the tank.
 - **Quality slider**, **grown-in plant preview**, **PNG screenshot**, and
   **export / import** layouts as portable `.aquascape.json` files. Your work
