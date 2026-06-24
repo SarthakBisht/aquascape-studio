@@ -10,7 +10,7 @@ export function CompositionGuides({ dims }: { dims: TankDimensions }) {
   const y = 0.4;
   const hw = w / 2;
   const hd = d / 2;
-  const color = "#38bdf8";
+  const color = "#c2a06a"; // driftwood — quiet, warm guide lines
 
   // thirds
   const thirdsX = [-w / 6, w / 6];
@@ -52,7 +52,7 @@ export function CompositionGuides({ dims }: { dims: TankDimensions }) {
       {goldenPoints.map((p, i) => (
         <mesh key={`g${i}`} position={[p[0], p[1], p[2]]}>
           <sphereGeometry args={[Math.max(0.6, w * 0.012), 12, 12]} />
-          <meshBasicMaterial color="#fbbf24" />
+          <meshBasicMaterial color="#d9b878" />
         </mesh>
       ))}
     </group>

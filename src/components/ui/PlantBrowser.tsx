@@ -31,7 +31,7 @@ function BrushSlider({
   onChange: (v: number) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-[10px] text-slate-400">
+    <label className="flex items-center gap-2 text-[10px] text-stone">
       <span className="w-14 shrink-0">{label}</span>
       <input
         type="range"
@@ -40,9 +40,9 @@ function BrushSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1 flex-1 accent-cyan-400"
+        className="h-1 flex-1 accent-moss"
       />
-      <span className="w-10 shrink-0 text-right tabular-nums text-slate-300">
+      <span className="w-10 shrink-0 text-right tabular-nums text-mist/80">
         {value}
         {suffix}
       </span>
@@ -97,17 +97,17 @@ export function PlantBrowser() {
               key={p.id}
               onClick={() => setActivePlant(active ? null : p.id)}
               className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
-                active ? "bg-cyan-400/20 ring-1 ring-cyan-400" : "bg-white/5 hover:bg-white/10"
+                active ? "bg-moss/20 ring-1 ring-moss" : "bg-mist/[0.05] hover:bg-mist/[0.1]"
               }`}
             >
               <Swatch color={p.color} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-medium">{p.name}</div>
-                <div className="truncate text-[10px] italic text-slate-400">
+                <div className="truncate text-[10px] italic text-stone">
                   {p.latin}
                 </div>
               </div>
-              <div className="text-right text-[9px] leading-tight text-slate-400">
+              <div className="text-right text-[9px] leading-tight text-stone">
                 <div className={`font-semibold capitalize ${DIFF_COLOR[p.difficulty]}`}>
                   {p.difficulty}
                 </div>
@@ -121,7 +121,7 @@ export function PlantBrowser() {
       </div>
 
       <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
-        <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-stone">
           Brush
         </div>
         <BrushSlider
@@ -153,11 +153,11 @@ export function PlantBrowser() {
         />
       </div>
 
-      <p className="mt-2 text-[10px] leading-snug text-slate-400">
+      <p className="mt-2 text-[10px] leading-snug text-stone">
         {activePlantId
           ? "🖌️ Click in the tank to fill an area with this plant."
           : "Select a plant, then paint it onto the substrate."}
-        <span className="ml-1 text-slate-500">({plants.length} patches)</span>
+        <span className="ml-1 text-stone/70">({plants.length} patches)</span>
       </p>
     </Panel>
   );

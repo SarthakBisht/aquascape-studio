@@ -26,7 +26,7 @@ function DimInput({
   const tank = useStudioStore((s) => s.tank);
   const setTank = useStudioStore((s) => s.setTank);
   return (
-    <label className="flex flex-1 flex-col gap-1 text-[10px] text-slate-400">
+    <label className="flex flex-1 flex-col gap-1 text-[10px] text-stone">
       {label}
       <input
         type="number"
@@ -37,7 +37,7 @@ function DimInput({
             [axis]: clamp(Number(e.target.value), TANK_LIMITS[axis]),
           })
         }
-        className="w-full rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-xs text-slate-100"
+        className="w-full rounded-md border border-mist/10 bg-mist/[0.06] px-1.5 py-1 text-xs text-mist"
       />
     </label>
   );
@@ -67,7 +67,7 @@ export function TankPanel() {
         <DimInput label="H (cm)" axis="height" />
       </div>
 
-      <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-400">
+      <div className="mb-2 text-[10px] uppercase tracking-wide text-stone">
         Substrate
       </div>
       <div className="mb-2 flex gap-1.5">
@@ -82,7 +82,7 @@ export function TankPanel() {
         ))}
       </div>
       <div className="mb-3 flex gap-1.5">
-        <label className="flex flex-1 flex-col gap-1 text-[10px] text-slate-400">
+        <label className="flex flex-1 flex-col gap-1 text-[10px] text-stone">
           Front (cm)
           <input
             type="number"
@@ -90,10 +90,10 @@ export function TankPanel() {
             onChange={(e) =>
               setSubstrate({ depthFront: clamp(Number(e.target.value), [0, 30]) })
             }
-            className="rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-xs"
+            className="rounded-md border border-mist/10 bg-mist/[0.06] px-1.5 py-1 text-xs"
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-[10px] text-slate-400">
+        <label className="flex flex-1 flex-col gap-1 text-[10px] text-stone">
           Back (cm)
           <input
             type="number"
@@ -101,12 +101,12 @@ export function TankPanel() {
             onChange={(e) =>
               setSubstrate({ depthBack: clamp(Number(e.target.value), [0, 30]) })
             }
-            className="rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-xs"
+            className="rounded-md border border-mist/10 bg-mist/[0.06] px-1.5 py-1 text-xs"
           />
         </label>
       </div>
 
-      <div className="mb-2 text-[10px] uppercase tracking-wide text-slate-400">
+      <div className="mb-2 text-[10px] uppercase tracking-wide text-stone">
         Style
       </div>
       <div className="flex gap-1.5">
@@ -122,7 +122,7 @@ export function TankPanel() {
         ))}
       </div>
       {activeStyle && (
-        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[10px] leading-snug text-slate-400">
+        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[10px] leading-snug text-stone">
           {activeStyle.rules.map((r) => (
             <li key={r}>{r}</li>
           ))}

@@ -53,6 +53,8 @@ interface StudioState {
   quality: Quality;
   showGuides: boolean;
   grownIn: boolean;
+  /** Zen mode dissolves the interface so only the scape remains. Transient. */
+  zen: boolean;
 
   // ---- plant brush (size/density of newly painted patches) ----
   brush: { radius: number; density: number; scale: number };
@@ -86,6 +88,7 @@ interface StudioState {
   setQuality: (q: Quality) => void;
   toggleGuides: () => void;
   setGrownIn: (on: boolean) => void;
+  toggleZen: () => void;
 
   loadLayout: (layout: Layout) => void;
   getLayout: () => Layout;
@@ -105,6 +108,7 @@ export const useStudioStore = create<StudioState>()(
       quality: "medium",
       showGuides: true,
       grownIn: false,
+      zen: false,
 
       brush: { radius: 6, density: 24, scale: 1 },
 
@@ -185,6 +189,7 @@ export const useStudioStore = create<StudioState>()(
       setQuality: (q) => set({ quality: q }),
       toggleGuides: () => set((s) => ({ showGuides: !s.showGuides })),
       setGrownIn: (on) => set({ grownIn: on }),
+      toggleZen: () => set((s) => ({ zen: !s.zen, selectedId: null })),
 
       loadLayout: (layout) =>
         set({

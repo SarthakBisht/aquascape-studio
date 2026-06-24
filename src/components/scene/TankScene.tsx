@@ -47,7 +47,7 @@ export function TankScene() {
           args={["#0f4a5e", tank.depth * 0.8, tank.depth * 4 + 80]}
         />
       )}
-      <color attach="background" args={[underwater ? "#0a3445" : "#0c1116"]} />
+      <color attach="background" args={[underwater ? "#08303c" : "#0f110d"]} />
 
       <Lighting mode={mode} />
 

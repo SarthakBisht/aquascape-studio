@@ -28,11 +28,11 @@ export function SelectionBar() {
   const mat = getMaterial(item.materialId);
 
   return (
-    <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2 text-slate-100 shadow-xl backdrop-blur-md">
-      <span className="mr-1 text-xs font-medium text-cyan-300">
+    <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-mist/10 bg-soil/80 px-3 py-2 text-mist shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md">
+      <span className="mr-1 font-display text-xs text-moss">
         {mat?.label ?? "Item"}
       </span>
-      <div className="flex overflow-hidden rounded-md border border-white/10">
+      <div className="flex overflow-hidden rounded-md border border-mist/10">
         {MODES.map((m) => (
           <Btn
             key={m.id}
@@ -43,7 +43,7 @@ export function SelectionBar() {
           </Btn>
         ))}
       </div>
-      <span className="mx-1 h-5 w-px bg-white/10" />
+      <span className="mx-1 h-5 w-px bg-mist/10" />
       <Btn
         onClick={() =>
           updateHardscape(item.id, { seed: Math.floor(Math.random() * 1e9) })
@@ -53,8 +53,11 @@ export function SelectionBar() {
         ♻ Regenerate
       </Btn>
       <Btn onClick={() => duplicateHardscape(item.id)}>⧉ Duplicate</Btn>
-      <Btn onClick={() => removeHardscape(item.id)} className="!bg-rose-500/80 !text-white hover:!bg-rose-500">
-        🗑 Delete
+      <Btn
+        onClick={() => removeHardscape(item.id)}
+        className="!bg-[#a8584a]/85 !text-mist hover:!bg-[#b8624f]"
+      >
+        Remove
       </Btn>
       <Btn onClick={() => selectItem(null)}>Done</Btn>
     </div>

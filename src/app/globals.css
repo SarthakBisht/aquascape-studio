@@ -1,5 +1,27 @@
 @import "tailwindcss";
 
+/*
+  Aquascape Studio — "Nature Aquarium gallery" theme.
+  Drawn from ADA / Takashi Amano: wabi-sabi (muted, weathered, imperfect),
+  zen simplicity, and the warm dim gallery where each scape glows like an
+  exhibit. Palette comes straight from the materials: aquasoil, stone, moss,
+  driftwood, water, and warm paper light.
+*/
+@theme inline {
+  --color-sumi: #0f110d; /* dim gallery ground */
+  --color-soil: #1a1c15; /* aquasoil — panel surfaces */
+  --color-soil-2: #24271d; /* raised surface */
+  --color-stone: #9a9d8f; /* seiryu grey-green — labels */
+  --color-moss: #97b06f; /* calm primary accent */
+  --color-moss-bright: #b8cf90;
+  --color-driftwood: #c2a06a; /* warm light / wood */
+  --color-mist: #e8e5d9; /* warm paper — primary text */
+  --color-water: #5e8c88; /* muted depth */
+
+  --font-sans: var(--font-zen-kaku);
+  --font-display: var(--font-zen-mincho);
+}
+
 :root {
   color-scheme: dark;
 }
@@ -11,14 +33,70 @@ body {
 
 body {
   margin: 0;
-  background: #0a0e14;
-  color: #e2e8f0;
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  /* a soft warm light pooling in a dark room */
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 36%, #1b1e16 0%, #0f110d 58%, #090a07 100%);
+  color: var(--color-mist);
+  font-family: var(--font-zen-kaku), system-ui, sans-serif;
+  font-weight: 300;
   overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* The 3D canvas drives its own cursor; keep selection from fighting drags. */
 canvas {
   outline: none;
   touch-action: none;
+}
+
+/* The scape is lit like an exhibit: a warm bloom in the middle, dark at the
+   edges so the eye settles on the tank. Overlays sit above the canvas. */
+.gallery-glow {
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 64%;
+  height: 60%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(204, 170, 112, 0.16),
+    transparent 70%
+  );
+  mix-blend-mode: screen;
+  filter: blur(28px);
+  animation: gallery-breathe 11s ease-in-out infinite;
+}
+
+.gallery-vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 72% 64% at 50% 46%,
+    transparent 42%,
+    rgba(6, 7, 5, 0.62) 100%
+  );
+}
+
+@keyframes gallery-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Quiet, slim scrollbars so panels feel calm. */
+.calm-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-mist) 14%, transparent) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-glow {
+    animation: none;
+  }
 }

@@ -22,6 +22,10 @@ const DPR: Record<Quality, [number, number]> = {
 export function Studio() {
   const tank = useStudioStore((s) => s.tank);
   const quality = useStudioStore((s) => s.quality);
+  const zen = useStudioStore((s) => s.zen);
+  const empty = useStudioStore(
+    (s) => s.hardscape.length === 0 && s.plants.length === 0,
+  );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // WebGL only mounts on the client — avoids SSR/window issues.
@@ -36,14 +40,16 @@ export function Studio() {
   // off the server and avoids hydration mismatches from persisted state.
   if (!mounted) {
     return (
-      <div className="grid h-full w-full place-items-center bg-slate-950 text-sm text-slate-500">
-        Loading studio…
+      <div className="grid h-full w-full place-items-center bg-sumi">
+        <span className="font-display text-sm italic tracking-wide text-stone">
+          preparing your tank…
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-slate-950">
+    <div className="relative h-full w-full overflow-hidden bg-sumi">
       <Canvas
         dpr={DPR[quality]}
         gl={{ preserveDrawingBuffer: true, antialias: true }}
@@ -60,11 +66,28 @@ export function Studio() {
         <TankScene />
       </Canvas>
 
-      {/* UI overlay */}
+      {/* gallery lighting — the scape is presented like an exhibit */}
+      <div className="gallery-glow" aria-hidden />
+      <div className="gallery-vignette" aria-hidden />
+
+      {/* an empty tank is an invitation */}
+      {empty && !zen && (
+        <div className="pointer-events-none absolute inset-0 flex items-end justify-center pb-[16%]">
+          <p className="font-display text-base italic text-mist/35">
+            Begin with a single stone.
+          </p>
+        </div>
+      )}
+
+      {/* UI overlay — dissolves in Zen mode so only the scape remains */}
       <div className="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3">
         <Toolbar onScreenshot={onScreenshot} />
-        <div className="flex min-h-0 flex-1 gap-3">
-          <div className="flex w-64 flex-col gap-3 overflow-y-auto">
+        <div
+          className={`flex min-h-0 flex-1 gap-3 transition-all duration-[1100ms] ease-out ${
+            zen ? "pointer-events-none translate-y-1 opacity-0" : "opacity-100"
+          }`}
+        >
+          <div className="calm-scroll flex w-64 flex-col gap-3 overflow-y-auto pr-0.5">
             <TankPanel />
             <HardscapePalette />
           </div>
@@ -73,7 +96,11 @@ export function Studio() {
             <PlantBrowser />
           </div>
         </div>
-        <div className="flex justify-center">
+        <div
+          className={`flex justify-center transition-opacity duration-500 ${
+            zen ? "pointer-events-none opacity-0" : "opacity-100"
+          }`}
+        >
           <SelectionBar />
         </div>
       </div>
