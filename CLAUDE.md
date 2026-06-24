@@ -82,11 +82,16 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   depth trick). Config in the store (`background`), presets in
   `src/data/backgrounds.ts`; the scene clear-color follows the backdrop edge, and
   a bright backdrop eases off the dark gallery vignette/glow in `Studio`.
-- **Plant painting:** select a species in `PlantBrowser` (`activePlantId`, tool
-  → `paint`) → click any surface. `paintIfActive` (`src/lib/surfaceInteraction.ts`)
-  raycasts the **Substrate and Hardscape** directly, so a patch always lands on
-  soil / stone / driftwood (no flat catch-plane; deselect via `onPointerMissed`).
-  `addPlantPatch` uses the current `brush` (radius/density/scale). Patches render as **crossed billboard
+- **Drawing / painting (the "pen"):** `tool` is `select | plant | ground`.
+  Pick a plant (`PlantBrowser` → `activePlantId`) or a material (`DrawPanel` →
+  `activeGround`), then press-drag on the tank. The stroke engine
+  (`src/lib/surfaceInteraction.ts`: `beginStroke`/`moveStroke`/`endStroke`)
+  raycasts the **paintable** surfaces (Substrate, Hardscape, GroundCover —
+  tagged `userData.paintable`) so everything lands on the real surface. Plant
+  blades are sampled per-blade onto the surface (slope/stone/wood); material
+  patches (`ground[]`, rendered by `GroundCover`) are laid level. OrbitControls
+  is disabled while a brush is active (`enabled={tool === "select"}`) so dragging
+  draws; deselect/stop via `onPointerMissed` or the DrawPanel stop button. Patches render as **crossed billboard
   cards** (`src/components/scene/Plants.tsx`) textured per plant *form* by
   `src/lib/plantTextures.ts` — procedurally drawn leaf silhouettes by default,
   auto-swapped for a real cutout PNG when a species sets `texture`. Heights are
@@ -106,12 +111,14 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 
 ## Scope
 **In (current MVP):** tank presets + custom dims, sloped substrate (aquasoil/
-sand/gravel), configurable **backdrop** (black/white/blue/gradient/backlit),
-procedural rocks + driftwood (or drop-in `.glb` models) with transform +
-stacking, plant browser with filters + **paint-onto-surface** billboards,
+sand/gravel), configurable **backdrop** (black/white/blue/gradient/backlit-glow,
+painted into scene.background so it fills cleanly), procedural rocks + driftwood
+(or drop-in `.glb` models) with transform + stacking, plant browser with filters
++ **paint-onto-surface** billboards (blades seated on the slope/stones), a
+freehand **draw tool** (drag to paint plants or level sand/gravel/soil patches),
 composition guides + style presets, grown-in toggle, quality slider, orbit
-camera, basic underwater mode (water + wandering fish + patch sway),
-export/import + screenshot.
+camera, **underwater mode** (subtle tank-only water, overhead light glare, fish
+that school and steer off the glass), export/import + screenshot.
 
 **Deferred (next milestones):**
 1. Real scanned glTF hardscape + PBR textures + HDRI environment (realism).

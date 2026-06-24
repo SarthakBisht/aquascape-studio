@@ -26,10 +26,14 @@ design a hardscape + planting layout, orbit around it from any angle, then
   Plants always rest on the surface you clicked. A **brush** controls area /
   density / size. Drop a cutout PNG into `public/plants/` to upgrade any species
   to a real photo (see [public/ASSETS.md](public/ASSETS.md)).
+- **Draw tool** — a freehand pen: pick a plant or a substrate material (sand /
+  gravel / soil) and **drag** on the tank to paint. Plants seat on the surface
+  slope; material draws as level patches. Orbit pauses while you draw.
 - **Composition help** — rule-of-thirds grid + golden-ratio markers, and
   Iwagumi / Nature / Dutch style hints.
-- **Underwater mode** — flood the tank: tinted water, depth fog, and fish
-  wandering around the scape; plants sway.
+- **Underwater mode** — flood the tank with **subtle, near-transparent water**
+  (only the tank), a soft **glare from the overhead light**, and **fish** that
+  school and turn smoothly off the glass; plants sway.
 - **Camera** — orbit / zoom / pan around the tank.
 - **Quality slider**, **grown-in plant preview**, **PNG screenshot**, and
   **export / import** layouts as portable `.aquascape.json` files. Your work
