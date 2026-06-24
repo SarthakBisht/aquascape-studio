@@ -22,9 +22,6 @@ export function TankScene() {
 
   const underwater = mode === "underwater";
   const center = tankCenter(tank);
-  // The clear color matches the backdrop edge so the area beyond the panel blends.
-  const edgeColor =
-    background.style === "solid" ? background.colorTop : background.colorBottom;
 
   return (
     <>
@@ -34,10 +31,9 @@ export function TankScene() {
           args={["#0f4a5e", tank.depth * 0.8, tank.depth * 4 + 80]}
         />
       )}
-      <color attach="background" args={[underwater ? "#08303c" : edgeColor]} />
+      <Backdrop background={background} underwater={underwater} />
 
       <Lighting mode={mode} />
-      <Backdrop dims={tank} background={background} />
 
       {/* Plant painting raycasts these surfaces directly, so plants always sit
           on the soil, a stone, or driftwood (deselect is handled by the

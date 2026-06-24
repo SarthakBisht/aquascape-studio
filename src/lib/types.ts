@@ -99,11 +99,24 @@ export interface PlantSpecies {
   texture?: string;
 }
 
+/** One scattered plant within a patch, with the surface height sampled under it. */
+export interface Blade {
+  /** Offset from the patch center (cm). */
+  x: number;
+  z: number;
+  /** Absolute world surface height the blade sits on (cm). */
+  y: number;
+  yaw: number;
+  lean: number;
+  /** Per-blade height multiplier. */
+  hMul: number;
+}
+
 /** A painted region of a single plant species. */
 export interface PlantPlacement {
   id: string;
   speciesId: string;
-  /** Center of the painted patch on the substrate. */
+  /** Center of the painted patch on the surface that was clicked. */
   position: Vec3;
   /** Patch radius in cm. */
   radius: number;
@@ -111,6 +124,12 @@ export interface PlantPlacement {
   density: number;
   /** Per-patch height multiplier (the "size" customization). Defaults to 1. */
   scale?: number;
+  /**
+   * Pre-sampled blades, each seated on the real surface (soil slope / stone /
+   * driftwood) under it. Baked at paint time. Older patches without this fall
+   * back to a flat scatter.
+   */
+  blades?: Blade[];
 }
 
 export type AquascapeStyle = "iwagumi" | "nature" | "dutch";

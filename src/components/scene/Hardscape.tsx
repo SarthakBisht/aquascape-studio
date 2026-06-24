@@ -78,6 +78,7 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
         position={item.position}
         rotation={item.rotation}
         scale={item.scale}
+        userData={{ paintable: true }}
         onClick={(e) => {
           if (!editable) return;
           if (paintIfActive(e)) return; // plant onto this rock/wood surface

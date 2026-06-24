@@ -62,7 +62,12 @@ export function Substrate({
   };
 
   return (
-    <mesh geometry={geometry} receiveShadow onClick={onClick}>
+    <mesh
+      geometry={geometry}
+      receiveShadow
+      onClick={onClick}
+      userData={{ paintable: true }}
+    >
       <meshStandardMaterial
         color={look.color}
         roughness={look.roughness}

@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import type { BackgroundConfig, TankDimensions } from "@/lib/types";
+import type { BackgroundConfig } from "@/lib/types";
 
-// The panel behind the back glass. Solid (black/white/blue), vertical gradient,
-// or a backlit frosted-white glow — the contest "gold standard" for depth. Uses
-// an unlit basic material so it reads as a lit panel regardless of scene lights.
+// The tank backdrop is painted straight into scene.background so it fills the
+// whole view seamlessly (a cyclorama) — no finite plane whose edges could show.
+// Solid → a flat color; gradient / backlit → a fullscreen canvas texture.
 
 function darken(hex: string, amount: number): string {
   const m = hex.replace("#", "");
@@ -21,14 +21,16 @@ function makeTexture(bg: BackgroundConfig): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   const ctx = c.getContext("2d")!;
   if (bg.style === "backlit") {
-    c.width = 256;
-    c.height = 256;
-    const g = ctx.createRadialGradient(128, 116, 16, 128, 132, 190);
+    c.width = 512;
+    c.height = 384;
+    ctx.fillStyle = darken(bg.colorBottom, 0.3 + bg.glow * 0.5);
+    ctx.fillRect(0, 0, c.width, c.height);
+    const g = ctx.createRadialGradient(256, 176, 24, 256, 200, 300);
     g.addColorStop(0, bg.colorTop);
-    g.addColorStop(0.6, bg.colorBottom);
-    g.addColorStop(1, darken(bg.colorBottom, 0.35 + bg.glow * 0.5));
+    g.addColorStop(0.55, bg.colorBottom);
+    g.addColorStop(1, darken(bg.colorBottom, 0.3 + bg.glow * 0.5));
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillRect(0, 0, c.width, c.height);
   } else {
     c.width = 8;
     c.height = 256;
@@ -41,36 +43,28 @@ function makeTexture(bg: BackgroundConfig): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = false;
   return tex;
 }
 
 export function Backdrop({
-  dims,
   background,
+  underwater,
 }: {
-  dims: TankDimensions;
   background: BackgroundConfig;
+  underwater: boolean;
 }) {
-  const solid = background.style === "solid";
   const texture = useMemo(
-    () => (solid ? null : makeTexture(background)),
-    [solid, background],
+    () => (background.style === "solid" ? null : makeTexture(background)),
+    [background],
   );
   useEffect(() => () => texture?.dispose(), [texture]);
 
-  const w = Math.max(dims.width * 2.6, 130);
-  const h = Math.max(dims.height * 2.6, 110);
-  const z = -dims.depth / 2 - 3;
-
-  return (
-    <mesh position={[0, dims.height * 0.45, z]}>
-      <planeGeometry args={[w, h]} />
-      {solid ? (
-        <meshBasicMaterial color={background.colorTop} toneMapped={false} />
-      ) : (
-        <meshBasicMaterial map={texture} toneMapped={false} />
-      )}
-    </mesh>
-  );
+  // NOTE: returns a scene.background attach directly (no wrapper group), so it
+  // binds to the scene rather than a child object.
+  if (underwater) return <color attach="background" args={["#08303c"]} />;
+  if (background.style === "solid" || !texture)
+    return <color attach="background" args={[background.colorTop]} />;
+  return <primitive attach="background" object={texture} />;
 }

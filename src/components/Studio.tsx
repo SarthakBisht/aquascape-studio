@@ -73,11 +73,7 @@ export function Studio() {
       {/* gallery lighting — the scape is presented like an exhibit. With a bright
           (white / backlit) backdrop the dark framing eases off. */}
       {!bright && <div className="gallery-glow" aria-hidden />}
-      <div
-        className="gallery-vignette"
-        style={{ opacity: bright ? 0.22 : 1 }}
-        aria-hidden
-      />
+      {!bright && <div className="gallery-vignette" aria-hidden />}
 
       {/* an empty tank is an invitation */}
       {empty && !zen && (

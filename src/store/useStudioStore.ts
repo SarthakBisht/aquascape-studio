@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   AquascapeStyle,
   BackgroundConfig,
+  Blade,
   HardscapeItem,
   Layout,
   PlantPlacement,
@@ -85,7 +86,7 @@ interface StudioState {
   setActivePlant: (speciesId: string | null) => void;
   setTool: (tool: "select" | "paint") => void;
   setBrush: (patch: Partial<StudioState["brush"]>) => void;
-  addPlantPatch: (speciesId: string, position: Vec3) => void;
+  addPlantPatch: (speciesId: string, position: Vec3, blades?: Blade[]) => void;
   removePlant: (id: string) => void;
 
   setMode: (mode: ViewMode) => void;
@@ -178,7 +179,7 @@ export const useStudioStore = create<StudioState>()(
         })),
       setTool: (tool) => set({ tool }),
       setBrush: (patch) => set((s) => ({ brush: { ...s.brush, ...patch } })),
-      addPlantPatch: (speciesId, position) => {
+      addPlantPatch: (speciesId, position, blades) => {
         const { radius, density, scale } = get().brush;
         const patch: PlantPlacement = {
           id: genId(),
@@ -187,6 +188,7 @@ export const useStudioStore = create<StudioState>()(
           radius,
           density,
           scale,
+          blades,
         };
         set((s) => ({ plants: [...s.plants, patch] }));
       },

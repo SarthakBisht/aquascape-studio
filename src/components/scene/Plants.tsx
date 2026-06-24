@@ -10,13 +10,13 @@ import { usePlantTexture } from "@/lib/plantTextures";
 import type { PlantForm, PlantPlacement, Quality } from "@/lib/types";
 
 // Plants as crossed photographic billboards (two perpendicular alpha cards), so
-// foliage reads as real leaves from any orbit angle. Pick a species, click the
-// substrate, and the patch fills with scaled, color-varied, gently swaying
-// plants. Drop a real cutout PNG per species to upgrade (see plantTextures).
+// foliage reads as real leaves from any orbit angle. Each blade is seated on the
+// surface sampled under it at paint time (soil slope / stone / driftwood), so
+// nothing floats over a slope. Pick a species, click a surface, and the patch
+// fills with scaled, color-varied, gently swaying plants.
 
 const QUALITY_DENSITY: Record<Quality, number> = { low: 0.4, medium: 0.7, high: 1 };
 
-// Width-to-height ratio of the billboard card per plant form.
 const FORM_WIDTH: Record<PlantForm, number> = {
   blade: 0.4,
   stem: 0.5,
@@ -51,6 +51,16 @@ function mulberry32(seed: number) {
   };
 }
 
+interface RenderBlade {
+  x: number;
+  z: number;
+  baseY: number; // local y (relative to patch center) the blade sits on
+  h: number;
+  yaw: number;
+  lean: number;
+  tint: number;
+}
+
 function Patch({ placement }: { placement: PlantPlacement }) {
   const grownIn = useStudioStore((s) => s.grownIn);
   const quality = useStudioStore((s) => s.quality);
@@ -61,6 +71,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
   const texture = usePlantTexture(species?.form ?? "blade", species?.texture);
   const widthRatio = FORM_WIDTH[species?.form ?? "blade"];
   const userScale = placement.scale ?? 1;
+  const baseWorldY = placement.position[1];
 
   const count = Math.max(
     5,
@@ -70,18 +81,36 @@ function Patch({ placement }: { placement: PlantPlacement }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
-  const blades = useMemo(() => {
-    const rand = mulberry32(hashSeed(placement.id));
+  const blades = useMemo<RenderBlade[]>(() => {
     const [minH, maxH] = species?.heightCm ?? [4, 8];
     const targetH = (grownIn ? maxH : minH + (maxH - minH) * 0.25) * userScale;
-    // Keep foliage inside the glass — tall stems bend at the surface IRL.
-    const cap = tankHeight * 0.96 - placement.position[1];
+    const capAt = (surfaceWorldY: number) =>
+      Math.max(2, tankHeight * 0.96 - surfaceWorldY);
+
+    // Preferred path: blades pre-sampled onto the real surface at paint time.
+    if (placement.blades && placement.blades.length) {
+      const n = Math.min(count, placement.blades.length);
+      return placement.blades.slice(0, n).map((b) => ({
+        x: b.x,
+        z: b.z,
+        baseY: b.y - baseWorldY,
+        h: Math.min(targetH * b.hMul, capAt(b.y)),
+        yaw: b.yaw,
+        lean: b.lean,
+        tint: 0.82 + Math.abs(Math.sin(b.x * 12.9 + b.z * 4.7)) * 0.3,
+      }));
+    }
+
+    // Fallback for legacy patches: flat scatter at the patch plane.
+    const rand = mulberry32(hashSeed(placement.id));
+    const cap = capAt(baseWorldY);
     return Array.from({ length: count }, () => {
       const ang = rand() * Math.PI * 2;
       const r = Math.sqrt(rand()) * placement.radius;
       return {
         x: Math.cos(ang) * r,
         z: Math.sin(ang) * r,
+        baseY: 0,
         h: Math.min(targetH * (0.7 + rand() * 0.6), cap),
         yaw: rand() * Math.PI * 2,
         lean: (rand() - 0.5) * 0.25,
@@ -89,9 +118,10 @@ function Patch({ placement }: { placement: PlantPlacement }) {
       };
     });
   }, [
+    placement.blades,
     placement.id,
     placement.radius,
-    placement.position,
+    baseWorldY,
     count,
     species?.heightCm,
     grownIn,
@@ -111,7 +141,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
     blades.forEach((b, i) => {
       e.set(b.lean, b.yaw, b.lean * 0.5);
       q.setFromEuler(e);
-      pos.set(b.x, 0, b.z);
+      pos.set(b.x, b.baseY, b.z);
       scl.set(b.h * widthRatio, b.h, b.h * widthRatio);
       m.compose(pos, q, scl);
       mesh.setMatrixAt(i, m);
