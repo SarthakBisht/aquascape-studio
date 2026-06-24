@@ -1,12 +1,38 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
-import { Outlines, TransformControls } from "@react-three/drei";
+import { Clone, Outlines, TransformControls, useGLTF } from "@react-three/drei";
 import { useStudioStore } from "@/store/useStudioStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { makeRockGeometry } from "@/lib/proceduralRock";
+import { paintIfActive } from "@/lib/surfaceInteraction";
 import type { HardscapeItem, Vec3 } from "@/lib/types";
+
+// Real scanned .glb hardscape, normalized to a unit footprint and seated on the
+// ground so it drops in at the same scale as the procedural rocks.
+function HardscapeModel({ url }: { url: string }) {
+  const { scene } = useGLTF(url);
+  const { norm, offset } = useMemo(() => {
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    const n = 1 / (Math.max(size.x, size.y, size.z) || 1);
+    return {
+      norm: n,
+      offset: [-center.x * n, -box.min.y * n, -center.z * n] as Vec3,
+    };
+  }, [scene]);
+  return (
+    <group position={offset}>
+      <group scale={norm}>
+        <Clone object={scene} />
+      </group>
+    </group>
+  );
+}
 
 function HardscapeMesh({ item }: { item: HardscapeItem }) {
   // Hold the Object3D in state (via a stable callback ref) so TransformControls
@@ -54,19 +80,26 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
         scale={item.scale}
         onClick={(e) => {
           if (!editable) return;
+          if (paintIfActive(e)) return; // plant onto this rock/wood surface
           e.stopPropagation();
           selectItem(item.id);
         }}
       >
-        <mesh geometry={geometry} castShadow receiveShadow>
-          <meshStandardMaterial
-            color={material?.color ?? "#7a7a7a"}
-            roughness={material?.roughness ?? 0.9}
-            metalness={material?.metalness ?? 0}
-            flatShading
-          />
-          {isSelected && <Outlines thickness={3} color="#7dd3fc" />}
-        </mesh>
+        {material?.model ? (
+          <Suspense fallback={null}>
+            <HardscapeModel url={material.model} />
+          </Suspense>
+        ) : (
+          <mesh geometry={geometry} castShadow receiveShadow>
+            <meshStandardMaterial
+              color={material?.color ?? "#7a7a7a"}
+              roughness={material?.roughness ?? 0.9}
+              metalness={material?.metalness ?? 0}
+              flatShading
+            />
+            {isSelected && <Outlines thickness={3} color="#b8cf90" />}
+          </mesh>
+        )}
       </group>
       {isSelected && obj && (
         <TransformControls

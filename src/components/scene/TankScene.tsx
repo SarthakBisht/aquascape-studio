@@ -1,10 +1,10 @@
 "use client";
 
 import { OrbitControls } from "@react-three/drei";
-import type { ThreeEvent } from "@react-three/fiber";
 import { useStudioStore } from "@/store/useStudioStore";
 import { tankCenter } from "@/lib/units";
 import { Lighting } from "./Lighting";
+import { Backdrop } from "./Backdrop";
 import { GlassTank } from "./GlassTank";
 import { Substrate } from "./Substrate";
 import { Hardscape } from "./Hardscape";
@@ -12,32 +12,19 @@ import { Plants } from "./Plants";
 import { Water } from "./Water";
 import { Fish } from "./Fish";
 import { CompositionGuides } from "./CompositionGuides";
-import type { Vec3 } from "@/lib/types";
 
 export function TankScene() {
   const tank = useStudioStore((s) => s.tank);
   const substrate = useStudioStore((s) => s.substrate);
+  const background = useStudioStore((s) => s.background);
   const mode = useStudioStore((s) => s.mode);
   const showGuides = useStudioStore((s) => s.showGuides);
-  const tool = useStudioStore((s) => s.tool);
-  const activePlantId = useStudioStore((s) => s.activePlantId);
-  const addPlantPatch = useStudioStore((s) => s.addPlantPatch);
-  const selectItem = useStudioStore((s) => s.selectItem);
 
   const underwater = mode === "underwater";
   const center = tankCenter(tank);
-  const catchY = (substrate.depthFront + substrate.depthBack) / 2;
-
-  const handleGround = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation();
-    if (mode !== "design") return;
-    if (tool === "paint" && activePlantId) {
-      const p: Vec3 = [e.point.x, e.point.y, e.point.z];
-      addPlantPatch(activePlantId, p);
-    } else {
-      selectItem(null);
-    }
-  };
+  // The clear color matches the backdrop edge so the area beyond the panel blends.
+  const edgeColor =
+    background.style === "solid" ? background.colorTop : background.colorBottom;
 
   return (
     <>
@@ -47,10 +34,14 @@ export function TankScene() {
           args={["#0f4a5e", tank.depth * 0.8, tank.depth * 4 + 80]}
         />
       )}
-      <color attach="background" args={[underwater ? "#08303c" : "#0f110d"]} />
+      <color attach="background" args={[underwater ? "#08303c" : edgeColor]} />
 
       <Lighting mode={mode} />
+      <Backdrop dims={tank} background={background} />
 
+      {/* Plant painting raycasts these surfaces directly, so plants always sit
+          on the soil, a stone, or driftwood (deselect is handled by the
+          Canvas onPointerMissed). */}
       <Substrate dims={tank} substrate={substrate} />
       <Hardscape />
       <Plants />
@@ -58,16 +49,6 @@ export function TankScene() {
       {underwater && <Fish dims={tank} substrate={substrate} />}
       <GlassTank dims={tank} />
       {showGuides && mode === "design" && <CompositionGuides dims={tank} />}
-
-      {/* invisible click-catcher for deselect / plant painting */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, catchY, 0]}
-        onClick={handleGround}
-      >
-        <planeGeometry args={[tank.width, tank.depth]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
 
       <OrbitControls
         makeDefault

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   AquascapeStyle,
+  BackgroundConfig,
   HardscapeItem,
   Layout,
   PlantPlacement,
@@ -14,6 +15,7 @@ import type {
 } from "@/lib/types";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { TANK_PRESETS, DEFAULT_TANK_ID } from "@/data/tankPresets";
+import { DEFAULT_BACKGROUND } from "@/data/backgrounds";
 
 // SSR-safe storage: localStorage doesn't exist on the server / during build.
 const noopStorage = {
@@ -47,6 +49,7 @@ interface StudioState {
   style: AquascapeStyle | null;
   hardscape: HardscapeItem[];
   plants: PlantPlacement[];
+  background: BackgroundConfig;
 
   // ---- persisted view settings ----
   mode: ViewMode;
@@ -69,6 +72,7 @@ interface StudioState {
   setTank: (dims: TankDimensions) => void;
   setSubstrate: (patch: Partial<SubstrateConfig>) => void;
   setStyle: (style: AquascapeStyle | null) => void;
+  setBackground: (patch: Partial<BackgroundConfig>) => void;
 
   addHardscape: (materialId: string) => void;
   updateHardscape: (id: string, patch: Partial<HardscapeItem>) => void;
@@ -103,6 +107,7 @@ export const useStudioStore = create<StudioState>()(
       style: null,
       hardscape: [],
       plants: [],
+      background: DEFAULT_BACKGROUND,
 
       mode: "design",
       quality: "medium",
@@ -121,6 +126,8 @@ export const useStudioStore = create<StudioState>()(
       setSubstrate: (patch) =>
         set((s) => ({ substrate: { ...s.substrate, ...patch } })),
       setStyle: (style) => set({ style }),
+      setBackground: (patch) =>
+        set((s) => ({ background: { ...s.background, ...patch } })),
 
       addHardscape: (materialId) => {
         const mat = getMaterial(materialId);
@@ -164,10 +171,11 @@ export const useStudioStore = create<StudioState>()(
       setTransformMode: (mode) => set({ transformMode: mode }),
 
       setActivePlant: (speciesId) =>
-        set({
+        set((s) => ({
           activePlantId: speciesId,
           tool: speciesId ? "paint" : "select",
-        }),
+          selectedId: speciesId ? null : s.selectedId,
+        })),
       setTool: (tool) => set({ tool }),
       setBrush: (patch) => set((s) => ({ brush: { ...s.brush, ...patch } })),
       addPlantPatch: (speciesId, position) => {
@@ -198,6 +206,7 @@ export const useStudioStore = create<StudioState>()(
           style: layout.style,
           hardscape: layout.hardscape,
           plants: layout.plants,
+          background: layout.background ?? DEFAULT_BACKGROUND,
           selectedId: null,
         }),
       getLayout: () => {
@@ -209,6 +218,7 @@ export const useStudioStore = create<StudioState>()(
           style: s.style,
           hardscape: s.hardscape,
           plants: s.plants,
+          background: s.background,
         };
       },
       reset: () =>
@@ -218,6 +228,7 @@ export const useStudioStore = create<StudioState>()(
           style: null,
           hardscape: [],
           plants: [],
+          background: DEFAULT_BACKGROUND,
           selectedId: null,
         }),
     }),
@@ -233,6 +244,7 @@ export const useStudioStore = create<StudioState>()(
         style: s.style,
         hardscape: s.hardscape,
         plants: s.plants,
+        background: s.background,
         mode: s.mode,
         quality: s.quality,
         showGuides: s.showGuides,

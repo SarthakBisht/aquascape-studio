@@ -9,8 +9,10 @@ import { TankScene } from "./scene/TankScene";
 import { Toolbar } from "./ui/Toolbar";
 import { TankPanel } from "./ui/TankPanel";
 import { HardscapePalette } from "./ui/HardscapePalette";
+import { BackgroundPanel } from "./ui/BackgroundPanel";
 import { PlantBrowser } from "./ui/PlantBrowser";
 import { SelectionBar } from "./ui/SelectionBar";
+import { isBrightBackground } from "@/data/backgrounds";
 import type { Quality } from "@/lib/types";
 
 const DPR: Record<Quality, [number, number]> = {
@@ -23,6 +25,7 @@ export function Studio() {
   const tank = useStudioStore((s) => s.tank);
   const quality = useStudioStore((s) => s.quality);
   const zen = useStudioStore((s) => s.zen);
+  const bright = useStudioStore((s) => isBrightBackground(s.background));
   const empty = useStudioStore(
     (s) => s.hardscape.length === 0 && s.plants.length === 0,
   );
@@ -62,13 +65,19 @@ export function Studio() {
         onCreated={({ gl }) => {
           canvasRef.current = gl.domElement;
         }}
+        onPointerMissed={() => useStudioStore.getState().selectItem(null)}
       >
         <TankScene />
       </Canvas>
 
-      {/* gallery lighting — the scape is presented like an exhibit */}
-      <div className="gallery-glow" aria-hidden />
-      <div className="gallery-vignette" aria-hidden />
+      {/* gallery lighting — the scape is presented like an exhibit. With a bright
+          (white / backlit) backdrop the dark framing eases off. */}
+      {!bright && <div className="gallery-glow" aria-hidden />}
+      <div
+        className="gallery-vignette"
+        style={{ opacity: bright ? 0.22 : 1 }}
+        aria-hidden
+      />
 
       {/* an empty tank is an invitation */}
       {empty && !zen && (
@@ -90,6 +99,7 @@ export function Studio() {
           <div className="calm-scroll flex w-64 flex-col gap-3 overflow-y-auto pr-0.5">
             <TankPanel />
             <HardscapePalette />
+            <BackgroundPanel />
           </div>
           <div className="flex-1" />
           <div className="flex max-h-full w-64 flex-col">

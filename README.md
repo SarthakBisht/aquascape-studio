@@ -15,12 +15,17 @@ design a hardscape + planting layout, orbit around it from any angle, then
   driftwood (Spider Wood, Manzanita). Add, **move / rotate / scale**, stack,
   duplicate, **regenerate** (new random shape), and delete. Data-driven, so new
   materials are a one-line addition.
+- **Background** — set the panel behind the tank: **black** (colors pop),
+  **white** (pro depth), **blue** (open water), **gradient**, or a **backlit**
+  frosted-white glow (the contest "gold standard" for depth) with adjustable
+  light. Solid/gradient/backlit styles with custom colors.
 - **Plants** — a classified, filterable browser (category · difficulty · light ·
-  CO₂). Select a species, then **click the substrate to paint** a patch of
-  **crossed photographic billboards** (real leaf silhouettes per plant form, not
-  grass-cones), correctly scaled & colored. A **brush** controls area / density /
-  size. Drop a cutout PNG into `public/plants/` to upgrade any species to a real
-  photo (see [public/ASSETS.md](public/ASSETS.md)).
+  CO₂). Select a species, then **click any surface — soil, stone, or driftwood —
+  to paint** a patch of **crossed photographic billboards** (real leaf
+  silhouettes per plant form, not grass-cones), correctly scaled & colored.
+  Plants always rest on the surface you clicked. A **brush** controls area /
+  density / size. Drop a cutout PNG into `public/plants/` to upgrade any species
+  to a real photo (see [public/ASSETS.md](public/ASSETS.md)).
 - **Composition help** — rule-of-thirds grid + golden-ratio markers, and
   Iwagumi / Nature / Dutch style hints.
 - **Underwater mode** — flood the tank: tinted water, depth fog, and fish

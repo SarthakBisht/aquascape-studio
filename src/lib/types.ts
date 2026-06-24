@@ -35,6 +35,12 @@ export interface HardscapeMaterial {
   metalness: number;
   /** Default non-uniform shape bias applied to the procedural mesh. */
   shape: Vec3;
+  /**
+   * Optional path to a real .glb model (e.g. "/models/seiryu-01.glb"). When set
+   * it replaces the procedural rock — the upgrade path to scanned hardscape.
+   * See public/ASSETS.md.
+   */
+  model?: string;
 }
 
 /** A placed piece of hardscape in the scene. */
@@ -122,6 +128,19 @@ export type Quality = "low" | "medium" | "high";
 export type ViewMode = "design" | "underwater";
 export type TransformMode = "translate" | "rotate" | "scale";
 
+/** The tank's backdrop — the panel behind the back glass. */
+export type BackgroundStyle = "solid" | "gradient" | "backlit";
+
+export interface BackgroundConfig {
+  style: BackgroundStyle;
+  /** Top / center color (solid uses this). */
+  colorTop: string;
+  /** Bottom (gradient) / edge (backlit) color. */
+  colorBottom: string;
+  /** Backlight intensity 0..1 (backlit only) — the frosted-panel glow. */
+  glow: number;
+}
+
 /** The serializable layout that gets saved / exported / shared. */
 export interface Layout {
   version: 1;
@@ -130,4 +149,5 @@ export interface Layout {
   style: AquascapeStyle | null;
   hardscape: HardscapeItem[];
   plants: PlantPlacement[];
+  background?: BackgroundConfig;
 }

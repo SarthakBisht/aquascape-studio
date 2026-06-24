@@ -56,13 +56,15 @@ wow factor, not production hardening.
 ```
 page.tsx (server) → <Studio/> (client, mounted-gate)
   └─ <Canvas> → <TankScene>
-       ├─ Lighting · GlassTank · Substrate                 (always)
-       ├─ Hardscape  → HardscapeMesh (procedural rock geo + TransformControls)
+       ├─ Lighting · Backdrop · GlassTank · Substrate      (always)
+       ├─ Hardscape  → HardscapeMesh (procedural rock geo OR .glb model + gizmo)
        ├─ Plants     → Patch (instanced crossed-billboard cards, paint-to-fill)
        ├─ Water · Fish                                      (underwater mode)
        ├─ CompositionGuides                                 (design mode + toggle)
-       └─ ground click-catcher (deselect / paint) + OrbitControls(makeDefault)
-  └─ UI overlay: Toolbar · TankPanel · HardscapePalette · PlantBrowser · SelectionBar
+       └─ OrbitControls(makeDefault); paint raycasts Substrate/Hardscape,
+          deselect via Canvas onPointerMissed
+  └─ UI overlay: Toolbar · TankPanel · HardscapePalette · BackgroundPanel ·
+     PlantBrowser · SelectionBar
 ```
 - **`useStudioStore`** is the single source of truth: tank dims, substrate,
   style, `hardscape[]`, `plants[]`, plus view settings (`mode`, `quality`,
@@ -75,9 +77,16 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 - **Editing loop:** click a piece → `selectItem` → drei `TransformControls`
   (move/rotate/scale) writes the transform back to the store `onObjectChange`.
   `OrbitControls makeDefault` lets TransformControls auto-disable orbit mid-drag.
+- **Backdrop** (`src/components/scene/Backdrop.tsx`): the panel behind the back
+  glass — solid / vertical gradient / backlit frosted-white glow (the contest
+  depth trick). Config in the store (`background`), presets in
+  `src/data/backgrounds.ts`; the scene clear-color follows the backdrop edge, and
+  a bright backdrop eases off the dark gallery vignette/glow in `Studio`.
 - **Plant painting:** select a species in `PlantBrowser` (`activePlantId`, tool
-  → `paint`) → click the substrate → `addPlantPatch` drops a patch using the
-  current `brush` (radius/density/scale). Patches render as **crossed billboard
+  → `paint`) → click any surface. `paintIfActive` (`src/lib/surfaceInteraction.ts`)
+  raycasts the **Substrate and Hardscape** directly, so a patch always lands on
+  soil / stone / driftwood (no flat catch-plane; deselect via `onPointerMissed`).
+  `addPlantPatch` uses the current `brush` (radius/density/scale). Patches render as **crossed billboard
   cards** (`src/components/scene/Plants.tsx`) textured per plant *form* by
   `src/lib/plantTextures.ts` — procedurally drawn leaf silhouettes by default,
   auto-swapped for a real cutout PNG when a species sets `texture`. Heights are
@@ -97,10 +106,12 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 
 ## Scope
 **In (current MVP):** tank presets + custom dims, sloped substrate (aquasoil/
-sand/gravel), procedural rocks + driftwood with transform + stacking, plant
-browser with filters + paint-to-fill, composition guides + style presets,
-grown-in toggle, quality slider, orbit camera, basic underwater mode (water +
-wandering fish + patch sway), export/import + screenshot.
+sand/gravel), configurable **backdrop** (black/white/blue/gradient/backlit),
+procedural rocks + driftwood (or drop-in `.glb` models) with transform +
+stacking, plant browser with filters + **paint-onto-surface** billboards,
+composition guides + style presets, grown-in toggle, quality slider, orbit
+camera, basic underwater mode (water + wandering fish + patch sway),
+export/import + screenshot.
 
 **Deferred (next milestones):**
 1. Real scanned glTF hardscape + PBR textures + HDRI environment (realism).
