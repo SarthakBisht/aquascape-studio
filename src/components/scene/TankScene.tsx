@@ -27,15 +27,9 @@ export function TankScene() {
 
   return (
     <>
-      {underwater && (
-        <fog
-          attach="fog"
-          args={["#0f4a5e", tank.depth * 0.8, tank.depth * 4 + 80]}
-        />
-      )}
-      <Backdrop background={background} underwater={underwater} />
+      <Backdrop background={background} />
 
-      <Lighting mode={mode} />
+      <Lighting mode={mode} dims={tank} />
 
       {/* Plant painting raycasts these surfaces directly, so plants always sit
           on the soil, a stone, or driftwood (deselect is handled by the

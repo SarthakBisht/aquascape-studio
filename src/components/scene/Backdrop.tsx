@@ -48,22 +48,16 @@ function makeTexture(bg: BackgroundConfig): THREE.CanvasTexture {
   return tex;
 }
 
-export function Backdrop({
-  background,
-  underwater,
-}: {
-  background: BackgroundConfig;
-  underwater: boolean;
-}) {
+export function Backdrop({ background }: { background: BackgroundConfig }) {
   const texture = useMemo(
     () => (background.style === "solid" ? null : makeTexture(background)),
     [background],
   );
   useEffect(() => () => texture?.dispose(), [texture]);
 
-  // NOTE: returns a scene.background attach directly (no wrapper group), so it
-  // binds to the scene rather than a child object.
-  if (underwater) return <color attach="background" args={["#08303c"]} />;
+  // The chosen backdrop shows in both design and underwater modes — only the
+  // tank itself fills with water. Returns a scene.background attach directly (no
+  // wrapper group) so it binds to the scene rather than a child object.
   if (background.style === "solid" || !texture)
     return <color attach="background" args={[background.colorTop]} />;
   return <primitive attach="background" object={texture} />;
