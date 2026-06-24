@@ -54,6 +54,9 @@ interface StudioState {
   showGuides: boolean;
   grownIn: boolean;
 
+  // ---- plant brush (size/density of newly painted patches) ----
+  brush: { radius: number; density: number; scale: number };
+
   // ---- transient editor state (not persisted) ----
   selectedId: string | null;
   transformMode: TransformMode;
@@ -75,7 +78,8 @@ interface StudioState {
 
   setActivePlant: (speciesId: string | null) => void;
   setTool: (tool: "select" | "paint") => void;
-  addPlantPatch: (speciesId: string, position: Vec3, radius?: number) => void;
+  setBrush: (patch: Partial<StudioState["brush"]>) => void;
+  addPlantPatch: (speciesId: string, position: Vec3) => void;
   removePlant: (id: string) => void;
 
   setMode: (mode: ViewMode) => void;
@@ -101,6 +105,8 @@ export const useStudioStore = create<StudioState>()(
       quality: "medium",
       showGuides: true,
       grownIn: false,
+
+      brush: { radius: 6, density: 24, scale: 1 },
 
       selectedId: null,
       transformMode: "translate",
@@ -159,13 +165,16 @@ export const useStudioStore = create<StudioState>()(
           tool: speciesId ? "paint" : "select",
         }),
       setTool: (tool) => set({ tool }),
-      addPlantPatch: (speciesId, position, radius = 6) => {
+      setBrush: (patch) => set((s) => ({ brush: { ...s.brush, ...patch } })),
+      addPlantPatch: (speciesId, position) => {
+        const { radius, density, scale } = get().brush;
         const patch: PlantPlacement = {
           id: genId(),
           speciesId,
           position,
           radius,
-          density: 24,
+          density,
+          scale,
         };
         set((s) => ({ plants: [...s.plants, patch] }));
       },
@@ -223,6 +232,7 @@ export const useStudioStore = create<StudioState>()(
         quality: s.quality,
         showGuides: s.showGuides,
         grownIn: s.grownIn,
+        brush: s.brush,
       }),
     },
   ),

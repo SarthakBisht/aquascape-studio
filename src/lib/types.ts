@@ -62,11 +62,21 @@ export type Difficulty = "easy" | "medium" | "hard";
 export type GrowthRate = "slow" | "medium" | "fast";
 export type LightNeed = "low" | "medium" | "high";
 
+/** Silhouette family — drives the billboard texture + proportions. */
+export type PlantForm =
+  | "blade" // grass / carpet blades
+  | "broadleaf" // anubias / crypt broad leaves
+  | "stem" // tall stem plants
+  | "rosette" // radiating crypt/sword
+  | "moss" // fuzzy clumps
+  | "floating"; // surface leaves
+
 export interface PlantSpecies {
   id: string;
   name: string;
   latin: string;
   category: PlantCategory;
+  form: PlantForm;
   difficulty: Difficulty;
   growth: GrowthRate;
   light: LightNeed;
@@ -75,6 +85,12 @@ export interface PlantSpecies {
   heightCm: [number, number];
   /** Representative foliage color. */
   color: string;
+  /**
+   * Optional path to a real cutout PNG (e.g. "/plants/anubias-nana.png").
+   * When set it replaces the procedural billboard texture — the upgrade path
+   * to photoreal foliage. See public/ASSETS.md.
+   */
+  texture?: string;
 }
 
 /** A painted region of a single plant species. */
@@ -87,6 +103,8 @@ export interface PlantPlacement {
   radius: number;
   /** Blades/stems per patch (scaled by quality at render time). */
   density: number;
+  /** Per-patch height multiplier (the "size" customization). Defaults to 1. */
+  scale?: number;
 }
 
 export type AquascapeStyle = "iwagumi" | "nature" | "dutch";

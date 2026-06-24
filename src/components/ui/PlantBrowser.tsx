@@ -13,10 +13,49 @@ const DIFF_COLOR: Record<Difficulty, string> = {
   hard: "text-rose-300",
 };
 
+function BrushSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-[10px] text-slate-400">
+      <span className="w-14 shrink-0">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-1 flex-1 accent-cyan-400"
+      />
+      <span className="w-10 shrink-0 text-right tabular-nums text-slate-300">
+        {value}
+        {suffix}
+      </span>
+    </label>
+  );
+}
+
 export function PlantBrowser() {
   const activePlantId = useStudioStore((s) => s.activePlantId);
   const setActivePlant = useStudioStore((s) => s.setActivePlant);
   const plants = useStudioStore((s) => s.plants);
+  const brush = useStudioStore((s) => s.brush);
+  const setBrush = useStudioStore((s) => s.setBrush);
 
   const [cat, setCat] = useState<PlantCategory | "all">("all");
   const [diff, setDiff] = useState<Difficulty | "all">("all");
@@ -79,6 +118,39 @@ export function PlantBrowser() {
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-400">
+          Brush
+        </div>
+        <BrushSlider
+          label="Area"
+          value={brush.radius}
+          min={2}
+          max={20}
+          step={1}
+          suffix="cm"
+          onChange={(v) => setBrush({ radius: v })}
+        />
+        <BrushSlider
+          label="Density"
+          value={brush.density}
+          min={6}
+          max={60}
+          step={2}
+          suffix=""
+          onChange={(v) => setBrush({ density: v })}
+        />
+        <BrushSlider
+          label="Size"
+          value={brush.scale}
+          min={0.5}
+          max={2}
+          step={0.1}
+          suffix="×"
+          onChange={(v) => setBrush({ scale: v })}
+        />
       </div>
 
       <p className="mt-2 text-[10px] leading-snug text-slate-400">

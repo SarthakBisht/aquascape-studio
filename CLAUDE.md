@@ -59,8 +59,12 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   (move/rotate/scale) writes the transform back to the store `onObjectChange`.
   `OrbitControls makeDefault` lets TransformControls auto-disable orbit mid-drag.
 - **Plant painting:** select a species in `PlantBrowser` (`activePlantId`, tool
-  → `paint`) → click the substrate → `addPlantPatch` drops a scaled, colored
-  instanced patch at the hit point.
+  → `paint`) → click the substrate → `addPlantPatch` drops a patch using the
+  current `brush` (radius/density/scale). Patches render as **crossed billboard
+  cards** (`src/components/scene/Plants.tsx`) textured per plant *form* by
+  `src/lib/plantTextures.ts` — procedurally drawn leaf silhouettes by default,
+  auto-swapped for a real cutout PNG when a species sets `texture`. Heights are
+  capped to the tank so tall stems don't pierce the glass.
 
 ## Known gotchas (project-specific)
 - **pnpm 11 build approval:** native deps (`sharp`, `unrs-resolver`) need
@@ -88,6 +92,8 @@ wandering fish + patch sway), export/import + screenshot.
    per-blade plant sway shader, submerged-camera waterline post-fx.
 4. Full GPU/instanced **boids** (separation/alignment/cohesion) + hardscape
    avoidance for fish.
-5. Alpha-textured billboard foliage (replace cone "blades").
+5. Real photographic plant cutouts (billboard pipeline is in place — just drop
+   PNGs into `public/plants/` and set `texture` on the species). Optional:
+   per-blade vertex-shader sway.
 6. Back-glass background image/color; sketch-to-3D rock drawing; accounts/
    sharing gallery; mobile/touch.

@@ -9,10 +9,26 @@ Suggested layout:
 
 ```
 public/
-  models/    # .glb / .gltf rocks, driftwood, fish, plants
+  models/    # .glb / .gltf rocks, driftwood, fish
+  plants/    # cutout PNGs for plant billboards (transparent background)
   textures/  # PBR maps for hardscape + substrate (basecolor/normal/roughness)
   hdri/      # .hdr / .exr environment maps for glass reflections
 ```
+
+## Plants — drop-in photoreal upgrade
+
+Plants render as crossed billboard cards. By default they use a **procedurally
+drawn** leaf silhouette per form (no download needed). To make a species
+photoreal, drop a transparent-background cutout PNG in `public/plants/` and set
+its path on the species in `src/data/plants.ts`:
+
+```ts
+{ id: "anubias-nana", /* … */ texture: "/plants/anubias-nana.png" }
+```
+
+That's the whole upgrade — `usePlantTexture` swaps the procedural texture for
+the image automatically. Good cutouts: front-on, single plant/tuft, alpha
+edges, ~512–1024px tall, leaves filling most of the frame.
 
 ## Good CC0 sources
 
