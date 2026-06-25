@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import type { BackgroundConfig } from "@/lib/types";
+import type { BackgroundConfig, TankDimensions } from "@/lib/types";
+import { useStudioStore } from "@/store/useStudioStore";
 
-// The tank backdrop is painted straight into scene.background so it fills the
-// whole view seamlessly (a cyclorama) — no finite plane whose edges could show.
-// Solid → a flat color; gradient / backlit → a fullscreen canvas texture.
+// The backdrop is a physical plane behind the back glass — not scene.background.
+// This keeps the dark gallery ambiance outside the tank (overhead, sides) while
+// the colored/gradient/backlit panel is visible only through the glass, which is
+// physically correct and prevents a white "sky" when the user picks white.
 
 function darken(hex: string, amount: number): string {
   const m = hex.replace("#", "");
@@ -25,9 +27,12 @@ function makeTexture(bg: BackgroundConfig): THREE.CanvasTexture {
     c.height = 384;
     ctx.fillStyle = darken(bg.colorBottom, 0.3 + bg.glow * 0.5);
     ctx.fillRect(0, 0, c.width, c.height);
-    const g = ctx.createRadialGradient(256, 176, 24, 256, 200, 300);
+    const cx = (bg.glowX ?? 0.5) * c.width;
+    const cy = (bg.glowY ?? 0.45) * c.height;
+    const outerR = Math.max(c.width, c.height) * 0.85;
+    const g = ctx.createRadialGradient(cx, cy, 16, cx, cy, outerR);
     g.addColorStop(0, bg.colorTop);
-    g.addColorStop(0.55, bg.colorBottom);
+    g.addColorStop(0.5, bg.colorBottom);
     g.addColorStop(1, darken(bg.colorBottom, 0.3 + bg.glow * 0.5));
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, c.width, c.height);
@@ -48,17 +53,47 @@ function makeTexture(bg: BackgroundConfig): THREE.CanvasTexture {
   return tex;
 }
 
-export function Backdrop({ background }: { background: BackgroundConfig }) {
+export function Backdrop({
+  background,
+  dims,
+}: {
+  background: BackgroundConfig;
+  dims: TankDimensions;
+}) {
+  const ambience = useStudioStore((s) => s.ambience);
+
   const texture = useMemo(
-    () => (background.style === "solid" ? null : makeTexture(background)),
+    () =>
+      background.style === "solid" || background.style === "none"
+        ? null
+        : makeTexture(background),
     [background],
   );
   useEffect(() => () => texture?.dispose(), [texture]);
 
-  // The chosen backdrop shows in both design and underwater modes — only the
-  // tank itself fills with water. Returns a scene.background attach directly (no
-  // wrapper group) so it binds to the scene rather than a child object.
-  if (background.style === "solid" || !texture)
-    return <color attach="background" args={[background.colorTop]} />;
-  return <primitive attach="background" object={texture} />;
+  const { width: w, depth: d, height: h } = dims;
+  // Edge-to-edge on the back panel: match the back glass (w × h) with a hair of
+  // bleed so no dark sliver shows at the seams. Sits just behind the back glass.
+  const planeW = w + 1;
+  const planeH = h + 1;
+  const dimKey = `${w}-${d}-${h}`;
+
+  return (
+    <>
+      {/* Scene/room ambience — sky and surroundings outside the tank. */}
+      <color attach="background" args={[ambience]} />
+
+      {/* Physical tank backdrop plane — only when a style is chosen. */}
+      {background.style !== "none" && (
+        <mesh key={dimKey} position={[0, h / 2, -(d / 2 + 0.3)]} renderOrder={-1}>
+          <planeGeometry args={[planeW, planeH]} />
+          {background.style === "solid" || !texture ? (
+            <meshBasicMaterial color={background.colorTop} side={THREE.DoubleSide} />
+          ) : (
+            <meshBasicMaterial map={texture} side={THREE.DoubleSide} />
+          )}
+        </mesh>
+      )}
+    </>
+  );
 }

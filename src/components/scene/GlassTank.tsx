@@ -12,14 +12,17 @@ const GLASS = 0.4; // pane thickness (cm)
 export function GlassTank({ dims }: { dims: TankDimensions }) {
   const { width: w, depth: d, height: h } = dims;
 
-  const panels = useMemo(
-    () => [
-      // [size, position]
-      { args: [w + GLASS, h, GLASS] as const, pos: [0, h / 2, -d / 2] as const }, // back
-      { args: [w + GLASS, h, GLASS] as const, pos: [0, h / 2, d / 2] as const }, // front
-      { args: [GLASS, h, d] as const, pos: [-w / 2, h / 2, 0] as const }, // left
-      { args: [GLASS, h, d] as const, pos: [w / 2, h / 2, 0] as const }, // right
-    ],
+  const { frontBack, sides } = useMemo(
+    () => ({
+      frontBack: [
+        { args: [w + GLASS, h, GLASS] as const, pos: [0, h / 2, -d / 2] as const }, // back
+        { args: [w + GLASS, h, GLASS] as const, pos: [0, h / 2, d / 2] as const }, // front
+      ],
+      sides: [
+        { args: [GLASS, h, d] as const, pos: [-w / 2, h / 2, 0] as const }, // left
+        { args: [GLASS, h, d] as const, pos: [w / 2, h / 2, 0] as const }, // right
+      ],
+    }),
     [w, d, h],
   );
 
@@ -36,7 +39,7 @@ export function GlassTank({ dims }: { dims: TankDimensions }) {
           metalness={0}
         />
       </mesh>
-      {panels.map((p, i) => (
+      {frontBack.map((p, i) => (
         <mesh key={i} position={p.pos}>
           <boxGeometry args={p.args} />
           <meshPhysicalMaterial
@@ -47,6 +50,24 @@ export function GlassTank({ dims }: { dims: TankDimensions }) {
             metalness={0}
             ior={1.5}
             side={2 /* THREE.DoubleSide */}
+            envMapIntensity={0.8}
+          />
+        </mesh>
+      ))}
+      {/* Side panes — higher envMapIntensity for visible glass reflections. */}
+      {sides.map((p, i) => (
+        <mesh key={i} position={p.pos}>
+          <boxGeometry args={p.args} />
+          <meshPhysicalMaterial
+            color="#d8eef2"
+            transparent
+            opacity={0.22}
+            roughness={0.0}
+            metalness={0}
+            ior={1.52}
+            side={2 /* THREE.DoubleSide */}
+            envMapIntensity={2.5}
+            reflectivity={1.0}
           />
         </mesh>
       ))}

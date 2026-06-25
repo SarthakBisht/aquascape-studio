@@ -15,7 +15,6 @@ import { LightPanel } from "./ui/LightPanel";
 import { PlantBrowser } from "./ui/PlantBrowser";
 import { FishPanel } from "./ui/FishPanel";
 import { SelectionBar } from "./ui/SelectionBar";
-import { isBrightBackground } from "@/data/backgrounds";
 import { endStroke } from "@/lib/surfaceInteraction";
 import type { Quality } from "@/lib/types";
 
@@ -30,7 +29,6 @@ export function Studio() {
   const quality = useStudioStore((s) => s.quality);
   const mode = useStudioStore((s) => s.mode);
   const zen = useStudioStore((s) => s.zen);
-  const bright = useStudioStore((s) => isBrightBackground(s.background));
   const empty = useStudioStore(
     (s) => s.hardscape.length === 0 && s.plants.length === 0,
   );
@@ -80,8 +78,8 @@ export function Studio() {
   // off the server and avoids hydration mismatches from persisted state.
   if (!mounted) {
     return (
-      <div className="grid h-full w-full place-items-center bg-sumi">
-        <span className="font-display text-sm italic tracking-wide text-stone">
+      <div className="grid h-full w-full place-items-center bg-mist">
+        <span className="font-display text-sm italic tracking-wide text-sumi/50">
           preparing your tank…
         </span>
       </div>
@@ -101,16 +99,17 @@ export function Studio() {
         }}
         onCreated={({ gl }) => {
           canvasRef.current = gl.domElement;
+          gl.localClippingEnabled = true;
         }}
         onPointerMissed={() => useStudioStore.getState().selectItem(null)}
       >
         <TankScene />
       </Canvas>
 
-      {/* gallery lighting — the scape is presented like an exhibit. With a bright
-          (white / backlit) backdrop the dark framing eases off. */}
-      {!bright && <div className="gallery-glow" aria-hidden />}
-      {!bright && <div className="gallery-vignette" aria-hidden />}
+      {/* gallery lighting — scene background is always the dark gallery color,
+          so these overlays always enhance the exhibit feel. */}
+      <div className="gallery-glow" aria-hidden />
+      <div className="gallery-vignette" aria-hidden />
 
       {/* an empty tank is an invitation */}
       {empty && !zen && (

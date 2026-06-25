@@ -1,6 +1,6 @@
 "use client";
 
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Environment } from "@react-three/drei";
 import { useStudioStore } from "@/store/useStudioStore";
 import { tankCenter } from "@/lib/units";
 import { Lighting } from "./Lighting";
@@ -31,7 +31,9 @@ export function TankScene() {
 
   return (
     <>
-      <Backdrop background={background} />
+      <Backdrop background={background} dims={tank} />
+      {/* Env map drives glass panel reflections without overriding the backdrop. */}
+      <Environment preset="studio" background={false} />
 
       <Lighting mode={mode} dims={tank} />
       <LightFixtures />

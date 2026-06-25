@@ -198,7 +198,7 @@ export interface LightFixture {
 }
 
 /** The tank's backdrop — the panel behind the back glass. */
-export type BackgroundStyle = "solid" | "gradient" | "backlit";
+export type BackgroundStyle = "none" | "solid" | "gradient" | "backlit";
 
 export interface BackgroundConfig {
   style: BackgroundStyle;
@@ -208,6 +208,9 @@ export interface BackgroundConfig {
   colorBottom: string;
   /** Backlight intensity 0..1 (backlit only) — the frosted-panel glow. */
   glow: number;
+  /** Backlit glow center, normalized 0..1 (default 0.5 / 0.45). */
+  glowX?: number;
+  glowY?: number;
 }
 
 /** The serializable layout that gets saved / exported / shared. */

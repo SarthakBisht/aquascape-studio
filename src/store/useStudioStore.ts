@@ -21,7 +21,7 @@ import type {
 } from "@/lib/types";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { TANK_PRESETS, DEFAULT_TANK_ID } from "@/data/tankPresets";
-import { DEFAULT_BACKGROUND } from "@/data/backgrounds";
+import { DEFAULT_BACKGROUND, DEFAULT_AMBIENCE } from "@/data/backgrounds";
 
 // SSR-safe storage: localStorage doesn't exist on the server / during build.
 const noopStorage = {
@@ -96,6 +96,8 @@ interface StudioState {
   plants: PlantPlacement[];
   ground: GroundPatch[];
   background: BackgroundConfig;
+  /** Scene / room ambience color — fills the canvas outside the tank. */
+  ambience: string;
   /** Per-species custom billboard image (speciesId → PNG data URL). */
   customPlantTextures: Record<string, string>;
 
@@ -134,6 +136,7 @@ interface StudioState {
   setSubstrate: (patch: Partial<SubstrateConfig>) => void;
   setStyle: (style: AquascapeStyle | null) => void;
   setBackground: (patch: Partial<BackgroundConfig>) => void;
+  setAmbience: (color: string) => void;
 
   addHardscape: (materialId: string, position?: Vec3, seed?: number) => void;
   updateHardscape: (id: string, patch: Partial<HardscapeItem>) => void;
@@ -187,6 +190,7 @@ export const useStudioStore = create<StudioState>()(
       plants: [],
       ground: [],
       background: DEFAULT_BACKGROUND,
+      ambience: DEFAULT_AMBIENCE,
       customPlantTextures: {},
 
       mode: "design",
@@ -228,6 +232,7 @@ export const useStudioStore = create<StudioState>()(
         get().pushHistory();
         set((s) => ({ background: { ...s.background, ...patch } }));
       },
+      setAmbience: (color) => set({ ambience: color }),
 
       addHardscape: (materialId, position = [0, 0, 0], seed) => {
         const mat = getMaterial(materialId);
@@ -493,6 +498,7 @@ export const useStudioStore = create<StudioState>()(
         plants: s.plants,
         ground: s.ground,
         background: s.background,
+        ambience: s.ambience,
         customPlantTextures: s.customPlantTextures,
         mode: s.mode,
         quality: s.quality,
@@ -502,7 +508,7 @@ export const useStudioStore = create<StudioState>()(
         fish: s.fish,
         brush: s.brush,
       }),
-      version: 1,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
         const s = (persisted ?? {}) as Record<string, unknown>;
         if (version < 1) {
@@ -513,6 +519,12 @@ export const useStudioStore = create<StudioState>()(
           if (!Array.isArray(s.lights)) {
             s.lights = DEFAULT_LIGHTS;
           }
+        }
+        if (version < 2) {
+          s.background = DEFAULT_BACKGROUND;
+        }
+        if (version < 3) {
+          s.ambience = DEFAULT_AMBIENCE;
         }
         return s as unknown as StudioState;
       },
