@@ -66,6 +66,8 @@ function Patch({ placement }: { placement: PlantPlacement }) {
   const quality = useStudioStore((s) => s.quality);
   const mode = useStudioStore((s) => s.mode);
   const tankHeight = useStudioStore((s) => s.tank.height);
+  const tankWidth = useStudioStore((s) => s.tank.width);
+  const tankDepth = useStudioStore((s) => s.tank.depth);
   const species = getSpecies(placement.speciesId);
 
   const customTex = useStudioStore((s) =>
@@ -91,6 +93,19 @@ function Patch({ placement }: { placement: PlantPlacement }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
+  // GPU clip planes — hard-clip geometry at the tank walls so tall billboards
+  // near the glass can't poke through, regardless of where their base sits.
+  const clipPlanes = useMemo(
+    () => [
+      new THREE.Plane(new THREE.Vector3(-1, 0, 0), tankWidth / 2),
+      new THREE.Plane(new THREE.Vector3(1, 0, 0), tankWidth / 2),
+      new THREE.Plane(new THREE.Vector3(0, 0, -1), tankDepth / 2),
+      new THREE.Plane(new THREE.Vector3(0, 0, 1), tankDepth / 2),
+      new THREE.Plane(new THREE.Vector3(0, -1, 0), tankHeight),
+    ],
+    [tankWidth, tankDepth, tankHeight],
+  );
+
   const blades = useMemo<RenderBlade[]>(() => {
     const [minH, maxH] = species?.heightCm ?? [4, 8];
     const youngH = minH * 0.55;
@@ -110,7 +125,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
         h: Math.min(targetH * b.hMul, capAt(b.y)),
         yaw: b.yaw,
         lean: b.lean,
-        tint: 0.82 + Math.abs(Math.sin(b.x * 12.9 + b.z * 4.7)) * 0.3,
+        tint: 0.5 + Math.abs(Math.sin(b.x * 12.9 + b.z * 4.7)) * 0.3,
       }));
     }
 
@@ -127,7 +142,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
         h: Math.min(targetH * (0.5 + rand() * 1.1), cap),
         yaw: rand() * Math.PI * 2,
         lean: (rand() - 0.5) * 0.55,
-        tint: 0.82 + rand() * 0.32,
+        tint: 0.5 + rand() * 0.32,
       };
     });
   }, [
@@ -155,10 +170,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
       e.set(b.lean, b.yaw, b.lean * 0.5);
       q.setFromEuler(e);
       pos.set(b.x, b.baseY, b.z);
-      // mirror ~half the cards (negative X scale) so repeats of the same image
-      // don't read as identical pastes
-      const flip = b.yaw > Math.PI ? -1 : 1;
-      scl.set(b.h * widthRatio * flip, b.h, b.h * widthRatio);
+      scl.set(b.h * widthRatio, b.h, b.h * widthRatio);
       m.compose(pos, q, scl);
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, col.setScalar(b.tint));
@@ -184,8 +196,9 @@ function Patch({ placement }: { placement: PlantPlacement }) {
           color={hasImage ? "#ffffff" : (species?.color ?? "#4f9a3f")}
           side={THREE.DoubleSide}
           alphaTest={0.5}
-          roughness={0.75}
+          roughness={0.95}
           metalness={0}
+          clippingPlanes={clipPlanes}
         />
       </instancedMesh>
     </group>

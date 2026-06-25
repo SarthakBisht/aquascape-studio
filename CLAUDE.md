@@ -86,11 +86,15 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 - **Editing loop:** click a piece → `selectItem` → drei `TransformControls`
   (move/rotate/scale) writes the transform back to the store `onObjectChange`.
   `OrbitControls makeDefault` lets TransformControls auto-disable orbit mid-drag.
-- **Backdrop** (`src/components/scene/Backdrop.tsx`): the panel behind the back
-  glass — solid / vertical gradient / backlit frosted-white glow (the contest
-  depth trick). Config in the store (`background`), presets in
-  `src/data/backgrounds.ts`; the scene clear-color follows the backdrop edge, and
-  a bright backdrop eases off the dark gallery vignette/glow in `Studio`.
+- **Backdrop** (`src/components/scene/Backdrop.tsx`): two independent things —
+  (1) **scene ambience** = the room/clear-color behind everything (`ambience`
+  hex in the store, dark→light swatches), and (2) the **tank backdrop**, a
+  physical plane sized edge-to-edge to the back glass (`w+1 × h+1`, just behind
+  it at `z=-(d/2+0.3)`) so it reads as a poster on the back panel, never a white
+  "sky". Styles: `none` (transparent — ambience shows through) / `solid` /
+  vertical `gradient` / `backlit` radial glow with controllable color, intensity
+  (`glow`) and source position (`glowX`/`glowY`). Config in `background`, presets
+  (white/black/blue/aqua/night/Lumen/Lagoon/Sunset) in `src/data/backgrounds.ts`.
 - **Drawing / painting (the "pen"):** `tool` is `select | plant | ground`.
   Pick a plant (`PlantBrowser` → `activePlantId`) or a material (`DrawPanel` →
   `activeGround`), then press-drag on the tank. The stroke engine

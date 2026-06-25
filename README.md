@@ -23,10 +23,12 @@ design a hardscape + planting layout, orbit around it from any angle, then
   **warmth** (color temperature) or RGB color, **X/Z position**, and on/off.
   Visible hardware hangs above the glass; a soft ambient fill keeps the scape
   lit even with every fixture off. Applies in design and underwater views.
-- **Background** — set the panel behind the tank: **black** (colors pop),
-  **white** (pro depth), **blue** (open water), **gradient**, or a **backlit**
-  frosted-white glow (the contest "gold standard" for depth) with adjustable
-  light. Solid/gradient/backlit styles with custom colors.
+- **Background** — two controls. **Scene ambience** tints the room behind the
+  whole tank (dark → light swatches + custom). The **tank backdrop** is a panel
+  edge-to-edge on the back glass: **None** (transparent), **White** (pro depth),
+  **Black** (colors pop), **Blue/Aqua/Night** gradients, or a **backlit** glow
+  (**Lumen** white · **Lagoon** blue · **Sunset** warm) — the contest "gold
+  standard" for depth, with adjustable color, brightness, and glow position.
 - **Plants** — a classified, filterable browser (category · difficulty · light ·
   CO₂). Select a species, then **click any surface — soil, stone, or driftwood —
   to paint** a patch of **crossed photographic billboards** (real leaf
