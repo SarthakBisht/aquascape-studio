@@ -62,7 +62,7 @@ interface RenderBlade {
 }
 
 function Patch({ placement }: { placement: PlantPlacement }) {
-  const grownIn = useStudioStore((s) => s.grownIn);
+  const growth = useStudioStore((s) => s.growth);
   const quality = useStudioStore((s) => s.quality);
   const mode = useStudioStore((s) => s.mode);
   const tankHeight = useStudioStore((s) => s.tank.height);
@@ -93,13 +93,16 @@ function Patch({ placement }: { placement: PlantPlacement }) {
 
   const blades = useMemo<RenderBlade[]>(() => {
     const [minH, maxH] = species?.heightCm ?? [4, 8];
-    const targetH = (grownIn ? maxH : minH + (maxH - minH) * 0.25) * userScale;
+    const youngH = minH * 0.55;
+    const targetH = (youngH + (maxH - youngH) * growth) * userScale;
+    // Fullness: reveal more of the pre-sampled blades as the scape grows in.
+    const visible = Math.max(5, Math.round(count * (0.5 + 0.5 * growth)));
     const capAt = (surfaceWorldY: number) =>
       Math.max(2, tankHeight * 0.96 - surfaceWorldY);
 
     // Preferred path: blades pre-sampled onto the real surface at paint time.
     if (placement.blades && placement.blades.length) {
-      const n = Math.min(count, placement.blades.length);
+      const n = Math.min(visible, placement.blades.length);
       return placement.blades.slice(0, n).map((b) => ({
         x: b.x,
         z: b.z,
@@ -114,7 +117,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
     // Fallback for legacy patches: flat scatter at the patch plane.
     const rand = mulberry32(hashSeed(placement.id));
     const cap = capAt(baseWorldY);
-    return Array.from({ length: count }, () => {
+    return Array.from({ length: visible }, () => {
       const ang = rand() * Math.PI * 2;
       const r = Math.sqrt(rand()) * placement.radius;
       return {
@@ -134,7 +137,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
     baseWorldY,
     count,
     species?.heightCm,
-    grownIn,
+    growth,
     userScale,
     tankHeight,
   ]);

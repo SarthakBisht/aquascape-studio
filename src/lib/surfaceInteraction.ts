@@ -104,6 +104,8 @@ export function beginStroke(e: ThreeEvent<PointerEvent>): boolean {
   e.stopPropagation();
   stroke.active = true;
   stroke.painted = false;
+  // The whole stroke (many dabs) collapses into one undo step.
+  useStudioStore.getState().beginTxn();
   paintAt(e);
   return true;
 }
@@ -124,5 +126,6 @@ export function moveStroke(e: ThreeEvent<PointerEvent>) {
 
 /** Pointer up anywhere — end the stroke. */
 export function endStroke() {
+  if (stroke.active) useStudioStore.getState().endTxn();
   stroke.active = false;
 }

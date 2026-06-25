@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { useStudioStore } from "@/store/useStudioStore";
+import { attenuateForDepth, summarizeRig } from "@/lib/lightRig";
 import type { SubstrateConfig, TankDimensions } from "@/lib/types";
 
 // Dancing light caustics on the substrate — a procedurally drawn caustic
@@ -44,10 +46,20 @@ export function Caustics({
   dims: TankDimensions;
   substrate: SubstrateConfig;
 }) {
+  const lights = useStudioStore((s) => s.lights);
+  const rig = useMemo(() => summarizeRig(lights), [lights]);
+
   const texture = useMemo(makeCaustics, []);
   useEffect(() => () => texture.dispose(), [texture]);
   const ref = useRef<THREE.Mesh>(null);
   const y = (substrate.depthFront + substrate.depthBack) / 2 + 0.3;
+
+  // Caustics sit on the floor (deepest), so the rig color is strongly absorbed;
+  // brightness tracks total intensity, and the pool drifts toward the lights.
+  const tint = useMemo(() => attenuateForDepth(rig.color, 0.5), [rig.color]);
+  const baseOpacity = Math.min(0.34, 0.03 + rig.intensity * 0.12);
+  const cx = THREE.MathUtils.clamp(rig.centerX * 0.3, -dims.width * 0.3, dims.width * 0.3);
+  const cz = THREE.MathUtils.clamp(rig.centerZ * 0.3, -dims.depth * 0.3, dims.depth * 0.3);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
@@ -55,19 +67,21 @@ export function Caustics({
     texture.offset.y = Math.sin(t * 0.2) * 0.06;
     texture.rotation = Math.sin(t * 0.05) * 0.12;
     const m = ref.current?.material as THREE.MeshBasicMaterial | undefined;
-    if (m) m.opacity = 0.16 + Math.sin(t * 0.8) * 0.06;
+    if (m) m.opacity = baseOpacity + Math.sin(t * 0.8) * baseOpacity * 0.35;
   });
 
   return (
-    <mesh ref={ref} position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh ref={ref} position={[cx, y, cz]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[dims.width * 0.96, dims.depth * 0.96]} />
       <meshBasicMaterial
         map={texture}
+        color={tint}
         transparent
-        opacity={0.18}
+        opacity={baseOpacity}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
         side={THREE.DoubleSide}
+        toneMapped={false}
       />
     </mesh>
   );

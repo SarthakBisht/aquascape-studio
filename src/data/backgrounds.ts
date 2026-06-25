@@ -44,7 +44,10 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   },
 ];
 
-export const DEFAULT_BACKGROUND: BackgroundConfig = BACKGROUND_PRESETS[0].config;
+// Default to the white backdrop (the pro choice — clean, maximises depth).
+export const DEFAULT_BACKGROUND: BackgroundConfig =
+  BACKGROUND_PRESETS.find((p) => p.id === "white")?.config ??
+  BACKGROUND_PRESETS[0].config;
 
 /** Relative luminance of a #rrggbb color (0..1). */
 export function hexLuminance(hex: string): number {

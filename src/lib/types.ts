@@ -35,6 +35,12 @@ export interface HardscapeMaterial {
   metalness: number;
   /** Default non-uniform shape bias applied to the procedural mesh. */
   shape: Vec3;
+  /** Per-stone surface roughness of the silhouette (higher = more jagged). */
+  jaggedness?: number;
+  /** Secondary color streaked into the surface as vertex colors (e.g. calcite veins). */
+  veinColor?: string;
+  /** Horizontal stratification — layered sedimentary look (Pagoda / petrified wood). */
+  strata?: boolean;
   /**
    * Optional path to a real .glb model (e.g. "/models/seiryu-01.glb"). When set
    * it replaces the procedural rock — the upgrade path to scanned hardscape.
@@ -169,6 +175,27 @@ export interface FishConfig {
   palette: FishPalette;
 }
 export type TransformMode = "translate" | "rotate" | "scale";
+
+export type FixtureType = "spot" | "flood" | "rgb";
+
+/** One controllable light hung above the tank. */
+export interface LightFixture {
+  id: string;
+  type: FixtureType;
+  /** Position above the tank: cm offset from tank center along width (x) / depth (z). */
+  x: number;
+  z: number;
+  /** Fixture height above the tank rim, in cm. */
+  height: number;
+  /** Brightness multiplier (~0..3). */
+  intensity: number;
+  /** Color temperature, warm 3000K .. cool 8000K — drives spot/flood color. */
+  kelvin: number;
+  /** Hex color — used by the `rgb` accent type only. */
+  color: string;
+  /** Toggle off without deleting. */
+  on: boolean;
+}
 
 /** The tank's backdrop — the panel behind the back glass. */
 export type BackgroundStyle = "solid" | "gradient" | "backlit";

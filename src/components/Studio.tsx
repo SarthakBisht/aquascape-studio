@@ -11,6 +11,7 @@ import { TankPanel } from "./ui/TankPanel";
 import { HardscapePalette } from "./ui/HardscapePalette";
 import { DrawPanel } from "./ui/DrawPanel";
 import { BackgroundPanel } from "./ui/BackgroundPanel";
+import { LightPanel } from "./ui/LightPanel";
 import { PlantBrowser } from "./ui/PlantBrowser";
 import { FishPanel } from "./ui/FishPanel";
 import { SelectionBar } from "./ui/SelectionBar";
@@ -44,6 +45,31 @@ export function Studio() {
     const up = () => endStroke();
     window.addEventListener("pointerup", up);
     return () => window.removeEventListener("pointerup", up);
+  }, []);
+
+  // Undo / redo shortcuts: Ctrl/⌘+Z, Ctrl+Shift+Z or Ctrl+Y (ignored while
+  // typing in a form field).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k !== "z" && k !== "y") return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      )
+        return;
+      e.preventDefault();
+      const store = useStudioStore.getState();
+      if (k === "y" || (k === "z" && e.shiftKey)) store.redo();
+      else store.undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const onScreenshot = () => {
@@ -108,6 +134,7 @@ export function Studio() {
             <HardscapePalette />
             <DrawPanel />
             <BackgroundPanel />
+            <LightPanel />
           </div>
           <div className="flex-1" />
           <div className="flex max-h-full w-64 flex-col">

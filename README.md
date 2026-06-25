@@ -11,10 +11,18 @@ design a hardscape + planting layout, orbit around it from any angle, then
 
 - **Tank** — preset sizes (Nano, ADA 60-P/90-P/120-P, Shallow) or custom W×D×H,
   with a sloped substrate (aquasoil / sand / gravel).
-- **Hardscape** — procedurally generated rocks (Seiryu, Dragon Stone, Lava) and
-  driftwood (Spider Wood, Manzanita). Add, **move / rotate / scale**, stack,
-  duplicate, **regenerate** (new random shape), and delete. Data-driven, so new
-  materials are a one-line addition.
+- **Hardscape** — procedurally generated rocks grounded in real aquascaping
+  stones (Seiryu, Dragon/Ohko, Lava, Frodo, Elephant Skin, Pagoda, Petrified
+  Wood — each with a distinct shape + surface: veins, strata, mottling) and
+  driftwood (Spider Wood, Manzanita). Pick a stone and a **ghost preview follows
+  your cursor** — click to place it anywhere (inside the tank or outside), then
+  **move / rotate / scale**, stack, duplicate, **regenerate** (new random shape),
+  and delete. Data-driven, so new materials are a one-line addition.
+- **Light rig** — build the lighting above the tank in the **Light** panel:
+  **add / remove fixtures** (Flood · Spot · RGB), each with its own intensity,
+  **warmth** (color temperature) or RGB color, **X/Z position**, and on/off.
+  Visible hardware hangs above the glass; a soft ambient fill keeps the scape
+  lit even with every fixture off. Applies in design and underwater views.
 - **Background** — set the panel behind the tank: **black** (colors pop),
   **white** (pro depth), **blue** (open water), **gradient**, or a **backlit**
   frosted-white glow (the contest "gold standard" for depth) with adjustable
@@ -36,12 +44,17 @@ design a hardscape + planting layout, orbit around it from any angle, then
 - **Composition help** — rule-of-thirds grid + golden-ratio markers, and
   Iwagumi / Nature / Dutch style hints.
 - **Underwater mode** — flood the tank with **subtle, near-transparent water**
-  (only the tank), a soft **glare from the overhead light**, **caustics** on the
-  substrate, drifting **bubbles**, and **fish you control** (count, size, color
-  palette, swim pattern — school / calm / dart / scatter — and speed) that flock
-  and turn smoothly off the glass; plants sway.
+  (only the tank) whose look follows your **light rig**: each fixture casts a
+  **god-ray shaft** from its real position (tight & bright for a spot, broad for
+  a flood, colored for RGB), and the **caustics**, water tint, and surface glare
+  take their color/brightness from the active lights — all fading cooler with
+  depth (real water absorbs warm light first). Plus drifting **bubbles** and
+  **fish you control** (count, size, color palette, swim pattern —
+  school / calm / dart / scatter — and speed) that flock and turn smoothly off
+  the glass; plants sway.
 - **Camera** — orbit / zoom / pan around the tank.
-- **Quality slider**, **grown-in plant preview**, **PNG screenshot**, and
+- **Quality slider**, a **growth slider** (just-planted → fully grown-in,
+  scaling plant height *and* fullness), **PNG screenshot**, and
   **export / import** layouts as portable `.aquascape.json` files. Your work
   also auto-saves to localStorage.
 
@@ -68,8 +81,10 @@ pnpm build      # production build (also type-checks)
 
 1. Pick a tank size (or set custom dimensions) and a substrate in the **Tank**
    panel. Optionally choose a **style** for composition hints.
-2. Toggle **Guides** on and place rocks/wood from the **Hardscape** panel; click
-   a piece to **Move / Rotate / Scale / Regenerate** it. Build up and stack.
+2. Toggle **Guides** on and place rocks/wood from the **Hardscape** panel: pick a
+   stone, move the cursor to position the **ghost preview**, and click to drop it;
+   then click a piece to **Move / Rotate / Scale / Regenerate** it. Build up and
+   stack. Tune the overhead **Light** panel to taste.
 3. In the **Plants** panel, filter and pick a species, then click on the
    substrate to fill an area with it.
 4. Flip to **Underwater** in the toolbar to flood the tank and watch the fish.
@@ -82,10 +97,12 @@ src/
   app/                 layout · page · globals.css
   components/
     Studio.tsx         Canvas host + UI overlay (client, mounted-gated)
-    scene/             TankScene, GlassTank, Substrate, Lighting, Hardscape,
-                       Plants, Water, Fish, CompositionGuides
-    ui/                Toolbar, TankPanel, HardscapePalette, PlantBrowser,
-                       SelectionBar, primitives
+    scene/             TankScene, GlassTank, Substrate, Lighting, LightFixtures,
+                       Hardscape, PlacementGhost, Plants, Water, Fish,
+                       CompositionGuides
+    ui/                Toolbar, TankPanel, HardscapePalette, LightPanel,
+                       DrawPanel, BackgroundPanel, PlantBrowser, SelectionBar,
+                       primitives
   store/useStudioStore.ts   single zustand store (persisted)
   data/                tankPresets, hardscapeMaterials, plants, stylePresets
   lib/                 types, units, proceduralRock, persistence

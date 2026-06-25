@@ -58,21 +58,28 @@ wow factor, not production hardening.
 ```
 page.tsx (server) → <Studio/> (client, mounted-gate)
   └─ <Canvas> → <TankScene>
-       ├─ Lighting · Backdrop · GlassTank · Substrate      (always)
+       ├─ Lighting (fixture-driven rig + baked fill) · LightFixtures (hardware)
+       ├─ Backdrop · GlassTank · Substrate                  (always)
        ├─ Hardscape  → HardscapeMesh (procedural rock geo OR .glb model + gizmo)
+       ├─ PlacementGhost (cursor-following rock ghost while placing)
        ├─ Plants     → Patch (instanced crossed-billboard cards, paint-to-fill)
        ├─ Caustics · Water · Bubbles · Fish                 (underwater mode)
        ├─ CompositionGuides                                 (design mode + toggle)
        └─ OrbitControls(makeDefault); paint raycasts Substrate/Hardscape,
           deselect via Canvas onPointerMissed
   └─ UI overlay: Toolbar · TankPanel · HardscapePalette · DrawPanel ·
-     BackgroundPanel · (PlantBrowser in design / FishPanel underwater) · SelectionBar
+     BackgroundPanel · LightPanel ·
+     (PlantBrowser in design / FishPanel underwater) · SelectionBar
 ```
 - **`useStudioStore`** is the single source of truth: tank dims, substrate,
-  style, `hardscape[]`, `plants[]`, plus view settings (`mode`, `quality`,
-  `showGuides`, `grownIn`) and the plant `brush` (`radius`/`density`/`scale`
-  applied to newly painted patches). `getLayout()`/`loadLayout()` back
-  export/import.
+  style, `hardscape[]`, `plants[]`, `lights[]` (the overhead rig), plus view
+  settings (`mode`, `quality`, `showGuides`, `growth`) and the plant `brush`
+  (`radius`/`density`/`scale` applied to newly painted patches). Transient,
+  never persisted: `selectedId`, `transformMode`, `activePlantId`, `activeGround`,
+  `tool` (now `select|plant|ground|place`), and the placement pair
+  `placingMaterialId`/`placingSeed`. A persist `version`/`migrate` maps the legacy
+  `grownIn` boolean → `growth` and seeds a default light rig.
+  `getLayout()`/`loadLayout()` back export/import.
 - **Procedural hardscape** (`src/lib/proceduralRock.ts`): a seed → a deformed
   icosahedron. Only the `seed` is persisted, so layouts stay tiny. "Regenerate"
   just rolls a new seed.
@@ -121,14 +128,23 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 ## Scope
 **In (current MVP):** tank presets + custom dims, sloped substrate (aquasoil/
 sand/gravel), configurable **backdrop** (black/white/blue/gradient/backlit-glow,
-painted into scene.background so it fills cleanly), procedural rocks + driftwood
-(or drop-in `.glb` models) with transform + stacking, plant browser with filters
+painted into scene.background so it fills cleanly), a **researched procedural
+rock library** (Seiryu/Dragon/Lava/Frodo/Elephant Skin/Pagoda/Petrified Wood —
+distinct shape + surface via jaggedness/veins/strata/vertex-color mottling) +
+driftwood (or drop-in `.glb` models), placed by **ghost-preview click-to-place**
+(inside or outside the tank) then transform + stacking, a user-built **overhead
+light rig** (add/remove Flood/Spot/RGB fixtures with intensity, warmth/color,
+X/Z position, on-off; visible hardware + a baked ambient fill; replaces the old
+hardcoded lights), plant browser with filters
 + **paint-onto-surface** billboards (blades seated on the slope/stones) +
 **drop-your-own-photo** plants (AI background removal), a
 freehand **draw tool** (drag to paint plants or level sand/gravel/soil patches),
-composition guides + style presets, grown-in toggle, quality slider, orbit
-camera, **underwater mode** (subtle tank-only water, overhead light glare,
-animated caustics + bubbles, and **fish you control** — count/size/colour
+composition guides + style presets, a **growth slider** (just-planted → grown-in,
+scaling plant height + fullness), quality slider, orbit
+camera, **underwater mode** (subtle tank-only water whose **god-ray shafts,
+caustics, water tint + surface glare are all driven by the light rig** — per
+fixture type/color/position/intensity, with depth-based warm absorption via
+`src/lib/lightRig.ts`; animated caustics + bubbles, and **fish you control** — count/size/colour
 palette/swim pattern [school·calm·dart·scatter]/speed — that flock and steer off
 the glass), export/import + screenshot.
 

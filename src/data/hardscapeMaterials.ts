@@ -2,8 +2,10 @@ import type { HardscapeMaterial } from "@/lib/types";
 
 // Data-driven hardscape library. Adding a new rock/wood type is just a new
 // entry here — the palette, picker, and renderer all read from this list.
-// `color/roughness/metalness` are placeholder looks until real scanned PBR
-// textures are bundled under /public/textures (see public/ASSETS.md).
+// `color/roughness/metalness` are placeholder looks, and `jaggedness/veinColor/
+// strata` shape the procedural surface, until real scanned PBR textures are
+// bundled under /public/textures (see public/ASSETS.md). The rock set is
+// grounded in common aquascaping stones.
 export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
   {
     id: "seiryu",
@@ -14,26 +16,79 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     roughness: 0.85,
     metalness: 0.04,
     shape: [1.1, 1.0, 0.9],
+    jaggedness: 0.5,
+    veinColor: "#d9dde0",
   },
   {
     id: "dragon",
     kind: "rock",
     label: "Dragon Stone (Ohko)",
-    blurb: "Porous brown clay rock. Great for caves & cliffs. Inert.",
+    blurb: "Porous reddish-brown clay rock, pitted like dragon scales. Inert.",
     color: "#8a6f4e",
     roughness: 0.95,
     metalness: 0.0,
     shape: [1.0, 1.05, 1.0],
+    jaggedness: 0.55,
   },
   {
     id: "lava",
     kind: "rock",
     label: "Lava Rock",
-    blurb: "Dark, lightweight, highly porous. Good biological filtration.",
+    blurb: "Dark, lightweight, highly porous. Great biological filtration.",
     color: "#3a3537",
     roughness: 1.0,
     metalness: 0.0,
     shape: [1.0, 0.9, 1.0],
+    jaggedness: 0.6,
+  },
+  {
+    id: "frodo",
+    kind: "rock",
+    label: "Frodo Stone",
+    blurb: "Grey-brown stone with deep furrows. Dense, compact, hardy.",
+    color: "#7c7468",
+    roughness: 0.9,
+    metalness: 0.02,
+    shape: [1.15, 0.95, 0.9],
+    jaggedness: 0.5,
+    veinColor: "#b9b2a6",
+  },
+  {
+    id: "elephant",
+    kind: "rock",
+    label: "Elephant Skin Stone",
+    blurb: "Light grey, rounded and rugged — weathered mountain-range grain.",
+    color: "#9a9690",
+    roughness: 0.9,
+    metalness: 0.0,
+    shape: [1.1, 0.85, 1.0],
+    jaggedness: 0.3,
+  },
+  {
+    id: "pagoda",
+    kind: "rock",
+    label: "Pagoda Stone",
+    blurb: "Anthracite-to-brown sedimentary stone in weathered layers.",
+    color: "#5a4f45",
+    roughness: 0.92,
+    metalness: 0.0,
+    shape: [1.25, 0.7, 1.0],
+    jaggedness: 0.32,
+    strata: true,
+    veinColor: "#8a7b67",
+  },
+  {
+    id: "petrified",
+    kind: "rock",
+    label: "Petrified Wood",
+    blurb: "Fossilised wood — dense, banded warm-brown grain. Inert.",
+    color: "#6e5642",
+    roughness: 0.8,
+    metalness: 0.02,
+    shape: [0.8, 1.0, 1.4],
+    jaggedness: 0.28,
+    strata: true,
+    veinColor: "#9a7b5a",
   },
   {
     id: "spiderwood",

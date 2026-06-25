@@ -6,7 +6,8 @@ import { Panel, Btn, Swatch } from "./primitives";
 import type { HardscapeKind } from "@/lib/types";
 
 function Group({ kind, title }: { kind: HardscapeKind; title: string }) {
-  const addHardscape = useStudioStore((s) => s.addHardscape);
+  const beginPlacing = useStudioStore((s) => s.beginPlacing);
+  const placingId = useStudioStore((s) => s.placingMaterialId);
   const items = HARDSCAPE_MATERIALS.filter((m) => m.kind === kind);
   return (
     <div className="mb-2 last:mb-0">
@@ -24,7 +25,9 @@ function Group({ kind, title }: { kind: HardscapeKind; title: string }) {
               <div className="truncate text-xs font-medium">{m.label}</div>
               <div className="truncate text-[10px] text-stone">{m.blurb}</div>
             </div>
-            <Btn onClick={() => addHardscape(m.id)}>+ Add</Btn>
+            <Btn active={placingId === m.id} onClick={() => beginPlacing(m.id)}>
+              {placingId === m.id ? "Placing…" : "Place"}
+            </Btn>
           </div>
         ))}
       </div>
@@ -33,14 +36,25 @@ function Group({ kind, title }: { kind: HardscapeKind; title: string }) {
 }
 
 export function HardscapePalette() {
+  const tool = useStudioStore((s) => s.tool);
+  const cancelPlacing = useStudioStore((s) => s.cancelPlacing);
   return (
     <Panel title="Hardscape">
       <Group kind="rock" title="Rocks" />
       <Group kind="wood" title="Driftwood" />
-      <p className="mt-2 text-[10px] leading-snug text-stone/70">
-        Each piece is procedurally generated — every &ldquo;Add&rdquo; is unique.
-        Select it in the tank to move, rotate, scale, stack, or regenerate.
-      </p>
+      {tool === "place" ? (
+        <button
+          onClick={() => cancelPlacing()}
+          className="mt-2 w-full rounded-md bg-moss/20 px-2 py-1.5 text-[11px] text-moss ring-1 ring-moss/40 transition-colors hover:bg-moss/30"
+        >
+          ✦ Click in the scene to place · Esc / here to cancel
+        </button>
+      ) : (
+        <p className="mt-2 text-[10px] leading-snug text-stone/70">
+          Pick a stone, then click in the scene to place it — inside the tank or
+          outside. Select it to move, rotate, scale, stack, or regenerate.
+        </p>
+      )}
     </Panel>
   );
 }

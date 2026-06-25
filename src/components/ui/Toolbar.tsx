@@ -11,10 +11,14 @@ const QUALITIES: Quality[] = ["low", "medium", "high"];
 export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
   const mode = useStudioStore((s) => s.mode);
   const setMode = useStudioStore((s) => s.setMode);
+  const undo = useStudioStore((s) => s.undo);
+  const redo = useStudioStore((s) => s.redo);
+  const canUndo = useStudioStore((s) => s.past.length > 0);
+  const canRedo = useStudioStore((s) => s.future.length > 0);
   const showGuides = useStudioStore((s) => s.showGuides);
   const toggleGuides = useStudioStore((s) => s.toggleGuides);
-  const grownIn = useStudioStore((s) => s.grownIn);
-  const setGrownIn = useStudioStore((s) => s.setGrownIn);
+  const growth = useStudioStore((s) => s.growth);
+  const setGrowth = useStudioStore((s) => s.setGrowth);
   const quality = useStudioStore((s) => s.quality);
   const setQuality = useStudioStore((s) => s.setQuality);
   const zen = useStudioStore((s) => s.zen);
@@ -65,6 +69,15 @@ export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
         </Btn>
       </div>
 
+      <div className="flex items-center gap-1">
+        <Btn onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+          ↶
+        </Btn>
+        <Btn onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+          ↷
+        </Btn>
+      </div>
+
       <div className="ml-auto flex items-center gap-2">
         <Btn active={zen} onClick={toggleZen} title="Hide the interface and just breathe">
           ☾ Zen
@@ -75,13 +88,21 @@ export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
         <Btn active={showGuides} onClick={toggleGuides} title="Composition guides">
           Guides
         </Btn>
-        <Btn
-          active={grownIn}
-          onClick={() => setGrownIn(!grownIn)}
-          title="Preview plants grown-in"
+        <label
+          className="flex items-center gap-1.5 text-[11px] font-light text-stone"
+          title="How grown-in the plants look"
         >
-          {grownIn ? "Grown-in" : "Just planted"}
-        </Btn>
+          Growth
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={growth}
+            onChange={(e) => setGrowth(Number(e.target.value))}
+            className="h-1 w-20 cursor-pointer accent-moss"
+          />
+        </label>
 
         <label className="flex items-center gap-1.5 text-[11px] font-light text-stone">
           Quality

@@ -45,6 +45,8 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
   const transformMode = useStudioStore((s) => s.transformMode);
   const selectItem = useStudioStore((s) => s.selectItem);
   const updateHardscape = useStudioStore((s) => s.updateHardscape);
+  const beginTxn = useStudioStore((s) => s.beginTxn);
+  const endTxn = useStudioStore((s) => s.endTxn);
 
   const material = getMaterial(item.materialId);
   const editable = mode === "design";
@@ -53,11 +55,20 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
   const geometry = useMemo(() => {
     const isWood = item.kind === "wood";
     return makeRockGeometry(item.seed, {
-      jaggedness: isWood ? 0.22 : 0.45,
+      jaggedness: material?.jaggedness ?? (isWood ? 0.22 : 0.45),
       detail: isWood ? 1 : 2,
       shape: material?.shape ?? [1, 1, 1],
+      veinColor: material?.veinColor,
+      strata: material?.strata,
     });
-  }, [item.seed, item.kind, material?.shape]);
+  }, [
+    item.seed,
+    item.kind,
+    material?.shape,
+    material?.jaggedness,
+    material?.veinColor,
+    material?.strata,
+  ]);
 
   // Geometries live in GPU memory until disposed.
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -98,6 +109,7 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
               color={material?.color ?? "#7a7a7a"}
               roughness={material?.roughness ?? 0.9}
               metalness={material?.metalness ?? 0}
+              vertexColors
               flatShading
             />
             {isSelected && <Outlines thickness={3} color="#b8cf90" />}
@@ -108,6 +120,8 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
         <TransformControls
           object={obj}
           mode={transformMode}
+          onMouseDown={() => beginTxn()}
+          onMouseUp={() => endTxn()}
           onObjectChange={writeBack}
         />
       )}

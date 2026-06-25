@@ -1,43 +1,75 @@
 "use client";
 
-import type { TankDimensions, ViewMode } from "@/lib/types";
+import { useMemo } from "react";
+import * as THREE from "three";
+import { useStudioStore } from "@/store/useStudioStore";
+import { kelvinToRgb } from "@/lib/lightColor";
+import type { FixtureType, LightFixture, TankDimensions, ViewMode } from "@/lib/types";
 
-// Explicit lights (no network/HDRI dependency so the first run is reliable).
-// Underwater adds an overhead spot — the aquarium light is "hung" above the
-// tank, so its glare comes straight down. The fixture itself is never drawn.
-export function Lighting({
-  mode,
-  dims,
+// Per-type spotlight shape + base intensity. Each fixture is hung above the tank
+// and aimed straight down at the substrate below it.
+const TYPE_PARAMS: Record<
+  FixtureType,
+  { angle: number; penumbra: number; base: number }
+> = {
+  flood: { angle: 0.9, penumbra: 0.7, base: 1.6 }, // broad even wash
+  spot: { angle: 0.35, penumbra: 0.2, base: 2.2 }, // hard pool of light
+  rgb: { angle: 0.6, penumbra: 0.6, base: 1.4 }, // colored accent
+};
+
+function FixtureLight({
+  light,
+  rimY,
+  uw,
 }: {
-  mode: ViewMode;
-  dims: TankDimensions;
+  light: LightFixture;
+  rimY: number;
+  uw: number;
 }) {
-  const underwater = mode === "underwater";
+  const color = useMemo(
+    () =>
+      light.type === "rgb" ? new THREE.Color(light.color) : kelvinToRgb(light.kelvin),
+    [light.type, light.color, light.kelvin],
+  );
+  const target = useMemo(() => new THREE.Object3D(), []);
+  target.position.set(light.x, 0, light.z);
+
+  const p = TYPE_PARAMS[light.type];
   return (
     <>
-      <ambientLight intensity={underwater ? 0.42 : 0.55} />
+      <primitive object={target} />
+      <spotLight
+        position={[light.x, rimY + light.height, light.z]}
+        target={target}
+        angle={p.angle}
+        penumbra={p.penumbra}
+        decay={0}
+        intensity={p.base * light.intensity * uw}
+        color={color}
+      />
+    </>
+  );
+}
+
+// User-built light rig + a small baked fill (ambient + hemisphere) so the scape
+// is never fully dark even with every fixture off.
+export function Lighting({ mode, dims }: { mode: ViewMode; dims: TankDimensions }) {
+  const lights = useStudioStore((s) => s.lights);
+  const underwater = mode === "underwater";
+  const uw = underwater ? 0.7 : 1;
+  return (
+    <>
+      <ambientLight intensity={underwater ? 0.25 : 0.3} />
       <hemisphereLight
-        intensity={underwater ? 0.55 : 0.8}
+        intensity={underwater ? 0.3 : 0.38}
         color={underwater ? "#cfeffb" : "#ffffff"}
         groundColor={underwater ? "#15303a" : "#cdbfae"}
       />
-      <directionalLight
-        position={[40, 80, 30]}
-        intensity={underwater ? 0.8 : 1.4}
-        color={underwater ? "#eaf6ff" : "#fff6e8"}
-      />
-      <directionalLight position={[-50, 40, -20]} intensity={0.4} color="#cfe8ff" />
-
-      {underwater && (
-        <spotLight
-          position={[0, dims.height * 2.2, 0]}
-          angle={0.7}
-          penumbra={0.85}
-          decay={0}
-          intensity={2.6}
-          color="#fff6e6"
-        />
-      )}
+      {lights
+        .filter((l) => l.on)
+        .map((l) => (
+          <FixtureLight key={l.id} light={l} rimY={dims.height} uw={uw} />
+        ))}
     </>
   );
 }

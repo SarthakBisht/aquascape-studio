@@ -4,11 +4,13 @@ import { OrbitControls } from "@react-three/drei";
 import { useStudioStore } from "@/store/useStudioStore";
 import { tankCenter } from "@/lib/units";
 import { Lighting } from "./Lighting";
+import { LightFixtures } from "./LightFixtures";
 import { Backdrop } from "./Backdrop";
 import { GlassTank } from "./GlassTank";
 import { Substrate } from "./Substrate";
 import { GroundCover } from "./GroundCover";
 import { Hardscape } from "./Hardscape";
+import { PlacementGhost } from "./PlacementGhost";
 import { Plants } from "./Plants";
 import { Water } from "./Water";
 import { Caustics } from "./Caustics";
@@ -32,6 +34,7 @@ export function TankScene() {
       <Backdrop background={background} />
 
       <Lighting mode={mode} dims={tank} />
+      <LightFixtures />
 
       {/* Plant painting raycasts these surfaces directly, so plants always sit
           on the soil, a stone, or driftwood (deselect is handled by the
@@ -39,6 +42,7 @@ export function TankScene() {
       <Substrate dims={tank} substrate={substrate} />
       <GroundCover />
       <Hardscape />
+      <PlacementGhost />
       <Plants />
       {underwater && <Caustics dims={tank} substrate={substrate} />}
       {underwater && <Water dims={tank} />}
