@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { resolveSubstrate, type SubstrateVariant } from "@/data/substrates";
-import type { SubstrateConfig } from "./types";
+import type { SubstrateType } from "./types";
 
 // Procedural seamless GRANULAR PBR maps for the substrate. Unlike the hardscape
 // surfaces (fbm lumps), substrate must read as packed individual grains/pellets
@@ -196,23 +196,114 @@ function getTextureSet(s: SubstrateVariant): TextureSet {
   return hit;
 }
 
+// ── Real-photo path: a bundled image → albedo, with normal + roughness derived
+// from its luminance. Cached per url. Built synchronously from a decoded image.
+const imgCache = new Map<string, TextureSet>();
+
+function buildImageSet(img: HTMLImageElement, url: string, relief: number): TextureSet {
+  const hit = imgCache.get(url);
+  if (hit) return hit;
+
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = TEX;
+  const ctx = cv.getContext("2d")!;
+  ctx.drawImage(img, 0, 0, TEX, TEX);
+  const src = ctx.getImageData(0, 0, TEX, TEX).data;
+
+  const lum = new Float32Array(TEX * TEX);
+  for (let i = 0; i < TEX * TEX; i++) {
+    lum[i] = (0.299 * src[i * 4] + 0.587 * src[i * 4 + 1] + 0.114 * src[i * 4 + 2]) / 255;
+  }
+  const normal = new Uint8ClampedArray(TEX * TEX * 4);
+  const rough = new Uint8ClampedArray(TEX * TEX * 4);
+  const bump = 2.0 * relief;
+  for (let y = 0; y < TEX; y++) {
+    for (let x = 0; x < TEX; x++) {
+      const l = lum[y * TEX + ((x - 1 + TEX) % TEX)];
+      const r = lum[y * TEX + ((x + 1) % TEX)];
+      const up = lum[((y - 1 + TEX) % TEX) * TEX + x];
+      const dn = lum[((y + 1) % TEX) * TEX + x];
+      const nx = (l - r) * bump;
+      const ny = (up - dn) * bump;
+      const inv = 1 / Math.hypot(nx, ny, 1);
+      const j = (y * TEX + x) * 4;
+      normal[j] = (nx * inv * 0.5 + 0.5) * 255;
+      normal[j + 1] = (ny * inv * 0.5 + 0.5) * 255;
+      normal[j + 2] = (inv * 0.5 + 0.5) * 255;
+      normal[j + 3] = 255;
+      const rg = (0.92 - 0.18 * lum[y * TEX + x]) * 255;
+      rough[j] = rough[j + 1] = rough[j + 2] = rg;
+      rough[j + 3] = 255;
+    }
+  }
+
+  const albedo = new THREE.CanvasTexture(cv);
+  albedo.colorSpace = THREE.SRGBColorSpace;
+  albedo.wrapS = albedo.wrapT = THREE.RepeatWrapping;
+  const set: TextureSet = {
+    albedo,
+    normal: canvasTexture(normal, THREE.NoColorSpace),
+    roughness: canvasTexture(rough, THREE.NoColorSpace),
+  };
+  imgCache.set(url, set);
+  return set;
+}
+
+/** Load a variant's photo into an image TextureSet (cached); null until decoded
+ *  or if it 404s (caller falls back to procedural). */
+function useImageTextureSet(variant: SubstrateVariant): TextureSet | null {
+  const url = variant.image;
+  const [set, setSet] = useState<TextureSet | null>(() =>
+    url ? imgCache.get(url) ?? null : null,
+  );
+  useEffect(() => {
+    if (!url) {
+      setSet(null);
+      return;
+    }
+    const cached = imgCache.get(url);
+    if (cached) {
+      setSet(cached);
+      return;
+    }
+    let alive = true;
+    const img = new Image();
+    img.onload = () => alive && setSet(buildImageSet(img, url, variant.relief));
+    img.onerror = () => alive && setSet(null); // missing file → procedural
+    img.src = url;
+    return () => {
+      alive = false;
+    };
+  }, [url, variant.relief]);
+  return set;
+}
+
 /** Granular PBR maps for a substrate, tiled to the tank size at real grain
  *  scale. Returns cloned textures (own repeat) so the editor and gallery can
  *  show different tanks without clobbering each other's tiling. */
 export function useSubstrateTextures(
-  substrate: SubstrateConfig,
+  substrate: { type: SubstrateType; variant?: string },
   wCm: number,
   dCm: number,
 ): TextureSet {
   const variant = resolveSubstrate(substrate);
+  const imageSet = useImageTextureSet(variant);
   const tex = useMemo(() => {
-    const set = getTextureSet(variant);
-    // grains across an axis = mm-span / grainMm; tile holds GRAINS grains.
-    const rx = Math.max(1, (wCm * 10) / (variant.grainMm * GRAINS));
-    const ry = Math.max(1, (dCm * 10) / (variant.grainMm * GRAINS));
+    const usingPhoto = !!imageSet;
+    const set = imageSet ?? getTextureSet(variant);
+    // Photo: tile by the real-world width it depicts. Procedural: by grain size
+    // (grains across an axis = mm-span / grainMm; tile holds GRAINS grains).
+    const rx = usingPhoto
+      ? Math.max(1, wCm / (variant.tileCm ?? 8))
+      : Math.max(1, (wCm * 10) / (variant.grainMm * GRAINS));
+    const ry = usingPhoto
+      ? Math.max(1, dCm / (variant.tileCm ?? 8))
+      : Math.max(1, (dCm * 10) / (variant.grainMm * GRAINS));
+    // Mirror-tile photos so the repeat seam is hidden; procedural is seamless.
+    const wrap = usingPhoto ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
     const clone = (src: THREE.CanvasTexture) => {
       const c = src.clone();
-      c.wrapS = c.wrapT = THREE.RepeatWrapping;
+      c.wrapS = c.wrapT = wrap;
       c.repeat.set(rx, ry);
       c.anisotropy = 8;
       c.needsUpdate = true;
@@ -223,7 +314,7 @@ export function useSubstrateTextures(
       normal: clone(set.normal),
       roughness: clone(set.roughness),
     };
-  }, [variant, wCm, dCm]);
+  }, [variant, imageSet, wCm, dCm]);
 
   // Clones share the cached source canvas but own a GPU upload → free on swap.
   useEffect(

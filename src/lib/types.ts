@@ -249,6 +249,9 @@ export interface PlantPlacement {
 export interface GroundPatch {
   id: string;
   type: SubstrateType;
+  /** Granular variant id (see `src/data/substrates.ts`). Optional: legacy
+   *  patches without it fall back to the first variant of `type`. */
+  variant?: string;
   /** Center on the surface that was painted. */
   position: Vec3;
   /** Patch radius in cm. */

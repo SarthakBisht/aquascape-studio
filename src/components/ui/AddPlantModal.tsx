@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useStudioStore } from "@/store/useStudioStore";
 import { processPlantImage } from "@/lib/plantImage";
 import { PLANT_CATEGORIES } from "@/data/plants";
@@ -139,7 +140,10 @@ export function AddPlantModal({
     onClose();
   }
 
-  return (
+  // Portal to <body> so the fixed overlay escapes the blurred panel's containing
+  // block (backdrop-filter traps position:fixed in Chrome) and fills the viewport.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-sumi/75 p-4 backdrop-blur-sm">
       <div className="w-[420px] max-w-full rounded-xl border border-mist/10 bg-soil/95 p-5 text-mist shadow-[0_20px_60px_-20px_rgba(0,0,0,0.85)]">
         <div className="mb-4 flex items-center justify-between">
@@ -314,6 +318,7 @@ export function AddPlantModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

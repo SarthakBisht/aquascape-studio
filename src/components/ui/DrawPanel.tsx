@@ -1,13 +1,14 @@
 "use client";
 
 import { useStudioStore } from "@/store/useStudioStore";
-import { Panel, Btn, Swatch } from "./primitives";
+import { Panel, Btn } from "./primitives";
+import { SUBSTRATES } from "@/data/substrates";
 import type { SubstrateType } from "@/lib/types";
 
-const MATERIALS: { id: SubstrateType; label: string; color: string }[] = [
-  { id: "sand", label: "Sand", color: "#d8c79f" },
-  { id: "gravel", label: "Gravel", color: "#8c8478" },
-  { id: "aquasoil", label: "Soil", color: "#2b2420" },
+const GROUPS: { type: SubstrateType; label: string }[] = [
+  { type: "aquasoil", label: "Aqua soil" },
+  { type: "sand", label: "Sand" },
+  { type: "gravel", label: "Gravel" },
 ];
 
 export function DrawPanel() {
@@ -68,20 +69,36 @@ export function DrawPanel() {
       <div className="mb-1 text-[10px] uppercase tracking-wide text-stone">
         Substrate brush
       </div>
-      <div className="flex gap-1.5">
-        {MATERIALS.map((m) => (
-          <Btn
-            key={m.id}
-            active={activeGround === m.id}
-            onClick={() => setActiveGround(activeGround === m.id ? null : m.id)}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Swatch color={m.color} />
-              {m.label}
-            </span>
-          </Btn>
-        ))}
-      </div>
+      {GROUPS.map((g) => (
+        <div key={g.type} className="mb-2">
+          <div className="mb-1 text-[9px] text-stone/70">{g.label}</div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {SUBSTRATES.filter((s) => s.type === g.type).map((s) => {
+              const active = activeGround === s.id;
+              return (
+                <button
+                  key={s.id}
+                  title={s.label}
+                  onClick={() => setActiveGround(active ? null : s.id)}
+                  className={`flex flex-col items-center gap-1 rounded-md border p-1 text-[8px] leading-tight transition ${
+                    active
+                      ? "border-aqua bg-aqua/10 text-mist"
+                      : "border-mist/10 bg-mist/[0.04] text-stone hover:border-mist/25"
+                  }`}
+                >
+                  <span
+                    className="h-4 w-full rounded-sm"
+                    style={{
+                      background: `radial-gradient(circle at 30% 30%, ${s.accent}, ${s.color})`,
+                    }}
+                  />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
 
       <label className="mt-2.5 flex items-center gap-2 text-[10px] text-stone">
         <span className="w-8 shrink-0">Size</span>

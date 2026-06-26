@@ -26,6 +26,7 @@ import type {
 import { fieldGrid, makeLinearField, sculptField } from "@/lib/terrain";
 import { cleanScape as runCleanScape } from "@/lib/autoScape";
 import { getMaterial } from "@/data/hardscapeMaterials";
+import { resolveSubstrate } from "@/data/substrates";
 import { PLANT_SPECIES } from "@/data/plants";
 import { TANK_PRESETS, DEFAULT_TANK_ID } from "@/data/tankPresets";
 import { DEFAULT_BACKGROUND, DEFAULT_AMBIENCE } from "@/data/backgrounds";
@@ -159,7 +160,7 @@ interface StudioState {
   selectedId: string | null;
   transformMode: TransformMode;
   activePlantId: string | null; // species "loaded" for the plant brush
-  activeGround: SubstrateType | null; // material "loaded" for the draw brush
+  activeGround: string | null; // substrate variant id "loaded" for the draw brush
   tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim";
   /** Sculpt brush direction: +1 raises soil, -1 carves it. Transient. */
   sculptDir: 1 | -1;
@@ -196,7 +197,7 @@ interface StudioState {
   setTransformMode: (mode: TransformMode) => void;
 
   setActivePlant: (speciesId: string | null) => void;
-  setActiveGround: (type: SubstrateType | null) => void;
+  setActiveGround: (variantId: string | null) => void;
   setTool: (tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim") => void;
   setSculptDir: (dir: 1 | -1) => void;
   /** Raise (+) / carve (−) the substrate height field under a world point. */
@@ -214,7 +215,7 @@ interface StudioState {
   updateCustomPlant: (id: string, patch: Partial<PlantSpecies>) => void;
   /** Delete a custom plant: its species, image, and any placed patches of it. */
   removeCustomPlant: (id: string) => void;
-  addGroundPatch: (type: SubstrateType, position: Vec3) => void;
+  addGroundPatch: (variantId: string, position: Vec3) => void;
 
   setMode: (mode: ViewMode) => void;
   setQuality: (q: Quality) => void;
@@ -559,11 +560,13 @@ export const useStudioStore = create<StudioState>()(
           };
         });
       },
-      addGroundPatch: (type, position) => {
+      addGroundPatch: (variantId, position) => {
         get().pushHistory();
+        const variant = resolveSubstrate({ type: "aquasoil", variant: variantId });
         const patch: GroundPatch = {
           id: genId(),
-          type,
+          type: variant.type,
+          variant: variant.id,
           position,
           radius: get().brush.radius,
         };

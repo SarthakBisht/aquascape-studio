@@ -138,7 +138,9 @@ export function moveStroke(e: ThreeEvent<PointerEvent>) {
   if (s.tool === "select") return;
   const dx = e.point.x - stroke.lastX;
   const dz = e.point.z - stroke.lastZ;
-  const spacing = Math.max(2, s.brush.radius * 0.8);
+  // Ground patches overlap densely for a smooth trail; other tools step coarser.
+  const step = s.tool === "ground" ? 0.35 : 0.8;
+  const spacing = Math.max(1.5, s.brush.radius * step);
   if (dx * dx + dz * dz >= spacing * spacing) {
     e.stopPropagation();
     paintAt(e);

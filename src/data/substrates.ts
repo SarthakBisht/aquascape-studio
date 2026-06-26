@@ -20,6 +20,12 @@ export interface SubstrateVariant {
   grainMm: number;
   /** Bump strength 0..1 (chunky soil/gravel = 1, fine sand = low). */
   relief: number;
+  /** Optional real photo (in /public). When present it replaces the procedural
+   *  albedo (normal/roughness derived from it); else fully procedural. */
+  image?: string;
+  /** Real-world width (cm) the photo depicts — sets tiling when `image` is set
+   *  (default 8). Smaller = grains look bigger. */
+  tileCm?: number;
 }
 
 export const SUBSTRATES: SubstrateVariant[] = [
@@ -87,6 +93,8 @@ export const SUBSTRATES: SubstrateVariant[] = [
     accent: "#e3cda1",
     grainMm: 0.6,
     relief: 0.45,
+    image: "/substrates/nature-sand.jpg",
+    tileCm: 6,
   },
   {
     id: "colorado",
