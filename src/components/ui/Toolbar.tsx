@@ -36,6 +36,8 @@ export function Toolbar({
   const togglePlants = useStudioStore((s) => s.togglePlants);
   const getLayout = useStudioStore((s) => s.getLayout);
   const loadLayout = useStudioStore((s) => s.loadLayout);
+  const cleanScape = useStudioStore((s) => s.cleanScape);
+  const style = useStudioStore((s) => s.style);
   const reset = useStudioStore((s) => s.reset);
   const setGallery = useLibraryStore((s) => s.setGallery);
   const scapeCount = useLibraryStore((s) => s.scapes.length);
@@ -90,6 +92,13 @@ export function Toolbar({
           ↷
         </Btn>
       </div>
+
+      <Btn
+        onClick={cleanScape}
+        title={`Tidy & fill the scape (${style ?? "nature"} style): remove pieces left outside the tank, reseat the rest on the substrate, and plant the missing layers`}
+      >
+        ✨ Clean
+      </Btn>
 
       <div className="ml-auto flex items-center gap-2">
         <Btn active={zen} onClick={toggleZen} title="Hide the interface and just breathe">

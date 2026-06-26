@@ -24,7 +24,9 @@ import type {
   ViewMode,
 } from "@/lib/types";
 import { fieldGrid, makeLinearField, sculptField } from "@/lib/terrain";
+import { cleanScape as runCleanScape } from "@/lib/autoScape";
 import { getMaterial } from "@/data/hardscapeMaterials";
+import { PLANT_SPECIES } from "@/data/plants";
 import { TANK_PRESETS, DEFAULT_TANK_ID } from "@/data/tankPresets";
 import { DEFAULT_BACKGROUND, DEFAULT_AMBIENCE } from "@/data/backgrounds";
 
@@ -223,6 +225,10 @@ interface StudioState {
   addLight: (type: FixtureType) => void;
   updateLight: (id: string, patch: Partial<LightFixture>) => void;
   removeLight: (id: string) => void;
+
+  /** One-click tidy + style-driven fill (pull stray pieces inside, reseat,
+   *  nudge the focal stone, fill missing plant layers). One undo step. */
+  cleanScape: () => void;
 
   loadLayout: (layout: Layout) => void;
   getLayout: () => Layout;
@@ -561,6 +567,22 @@ export const useStudioStore = create<StudioState>()(
         })),
       removeLight: (id) =>
         set((s) => ({ lights: s.lights.filter((l) => l.id !== id) })),
+
+      cleanScape: () => {
+        const s = get();
+        s.beginTxn(); // whole clean collapses into one undo step
+        const res = runCleanScape({
+          tank: s.tank,
+          substrate: s.substrate,
+          style: s.style,
+          hardscape: s.hardscape,
+          plants: s.plants,
+          species: [...PLANT_SPECIES, ...s.customPlants],
+          newId: genId,
+        });
+        set({ hardscape: res.hardscape, plants: res.plants, selectedId: null });
+        s.endTxn();
+      },
 
       loadLayout: (layout) => {
         get().pushHistory();

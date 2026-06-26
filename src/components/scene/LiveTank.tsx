@@ -198,6 +198,7 @@ function PreviewPatch({
   underwater,
   customTex,
   customSpecies,
+  worldOffset,
 }: {
   placement: PlantPlacement;
   dims: TankDimensions;
@@ -205,6 +206,9 @@ function PreviewPatch({
   underwater: boolean;
   customTex?: string;
   customSpecies?: PlantSpecies;
+  /** world-space [x,y,z] the scape group is translated to (showroom cabinets) so
+   *  the world-space glass clip planes track the tank instead of the origin. */
+  worldOffset: [number, number, number];
 }) {
   const species = getSpecies(placement.speciesId) ?? customSpecies;
   const url = customTex ?? species?.texture;
@@ -218,15 +222,16 @@ function PreviewPatch({
   const ref = useRef<THREE.InstancedMesh>(null);
   const groupRef = useRef<THREE.Group>(null);
 
+  const [ox, oy, oz] = worldOffset;
   const clipPlanes = useMemo(
     () => [
-      new THREE.Plane(new THREE.Vector3(-1, 0, 0), dims.width / 2),
-      new THREE.Plane(new THREE.Vector3(1, 0, 0), dims.width / 2),
-      new THREE.Plane(new THREE.Vector3(0, 0, -1), dims.depth / 2),
-      new THREE.Plane(new THREE.Vector3(0, 0, 1), dims.depth / 2),
-      new THREE.Plane(new THREE.Vector3(0, -1, 0), dims.height),
+      new THREE.Plane(new THREE.Vector3(-1, 0, 0), dims.width / 2 + ox),
+      new THREE.Plane(new THREE.Vector3(1, 0, 0), dims.width / 2 - ox),
+      new THREE.Plane(new THREE.Vector3(0, 0, -1), dims.depth / 2 + oz),
+      new THREE.Plane(new THREE.Vector3(0, 0, 1), dims.depth / 2 - oz),
+      new THREE.Plane(new THREE.Vector3(0, -1, 0), dims.height + oy),
     ],
-    [dims.width, dims.depth, dims.height],
+    [dims.width, dims.depth, dims.height, ox, oy, oz],
   );
 
   const blades = useMemo(() => {
@@ -360,12 +365,16 @@ export function ScapeContent({
   layout,
   underwater: underwaterOverride,
   fish,
+  worldOffset = [0, 0, 0],
 }: {
   layout: Layout;
   /** Force the flooded look regardless of the saved view mode (gallery showroom). */
   underwater?: boolean;
   /** Render swimming fish with this config (gallery showroom). */
   fish?: FishConfig | null;
+  /** World-space translation of this scape (showroom cabinets); shifts the plant
+   *  glass clip planes so they track the tank, not the origin. Default origin. */
+  worldOffset?: [number, number, number];
 }) {
   const dims = layout.tank;
   const underwater = underwaterOverride ?? layout.mode === "underwater";
@@ -394,6 +403,7 @@ export function ScapeContent({
           underwater={underwater}
           customTex={customPlantTextures[p.speciesId]}
           customSpecies={customPlants.find((c) => c.id === p.speciesId)}
+          worldOffset={worldOffset}
         />
       ))}
       {underwater && fish && fish.count > 0 && (

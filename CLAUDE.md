@@ -77,7 +77,7 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        ├─ ColorGrade (EffectComposer, mounted only when grade ≠ neutral)
        └─ OrbitControls(makeDefault); paint raycasts Substrate/Hardscape,
           deselect via Canvas onPointerMissed
-  └─ UI overlay: Toolbar (Save · Gallery · Capture · Export/Import · Reset) ·
+  └─ UI overlay: Toolbar (Clean · Save · Gallery · Capture · Export/Import · Reset) ·
      TankPanel · HardscapePalette (+ DrawShapeModal,
      PhotoTo3DModal) · HardscapeEditPanel · DrawPanel · BackgroundPanel ·
      LightPanel · GradePanel ·
@@ -110,22 +110,33 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   settle) so tiles read like contest-gallery photos. **Gallery** opens a
   full-screen `Gallery` overlay (`galleryOpen`, transient) with two views (header
   toggle): **Grid** (dark contest-style tile grid) and **Showroom** (a single
-  **navigable 3D room** — `Showroom3D`, one `<Canvas>`: the saved scapes placed
-  as live tanks on dark cabinets along the back wall of a **cozy, warm-lit,
-  reflective-floored** gallery (warm ambient + lounge accents + fog vs. the dark
-  room, like the reference). Modeled on real ADA / aquascaping showrooms: rimless
-  tanks on matte-charcoal cabinets (recessed door panels), **cyan glass-edge
-  glow**, **suspended pendant fixtures on cables**, a **bright white backlit wall
-  band** behind the row (tanks silhouette against it; spills cool light forward),
-  **polished concrete** floor reflecting **long ceiling light strips** as streaks,
-  saved scapes also hung as **framed prints** on the upper wall, plus a center
-  **lounge** (benches + glass table). Each tank is **flooded + lit by its own saved
-  light rig**, behind the **same backdrop it was designed with** (`BackdropPanel`,
-  store-free split out of `Backdrop`), with a light pale-cyan water veil and **its
-  own fish swimming** (per-scape `FishConfig`, `ambient` fill off so N rigs don't
-  wash the room). Free-look with `OrbitControls`
-  (drag = look, right-drag = move, scroll = zoom), hover shows the tank name,
-  click opens it).
+  **navigable 3D gallery** — `Showroom3D`, one `<Canvas>`: a premium **ADA Nature
+  Aquarium Gallery** where the tanks are museum pieces, not décor. A long, **dark**
+  off-white hall over a **polished-concrete reflector floor** (`MeshReflectorMaterial`),
+  minimal ceiling with **recessed emissive light strips** (streak in the floor) and
+  a dim procedural IBL (`Environment` + `Lightformer`s — studio env for glass/metal
+  Fresnel, **no external HDRI**, sidesteps the CORS gotcha). Tanks sit on **identical
+  matte-charcoal cabinets** (recessed doors + brushed-alloy trim), aligned in one row
+  with **generous gaps** (`GAP`); once ≥5 scapes exist the largest-volume scape is
+  pulled forward as a **freestanding hero centrepiece**. Each tank is **flooded + lit
+  by its own saved light rig** behind the **same backdrop it was designed with**
+  (`BackdropPanel`) with its **own fish** (per-scape `FishConfig`, `ambient` fill off).
+  Above every tank a **suspended anodized pendant** (near-invisible cables, emissive
+  bar, `spotLight` + soft **volumetric cone**); the room stays dark and **each exhibit
+  brightens as the camera approaches** (per-`ExhibitView` `useFrame` lerps its
+  spot/fill/emitter/cone by camera distance + a faint pendant flicker). Atmosphere:
+  **floating dust** (`Sparkles`), `fog`, `ContactShadows`, and a postprocessing stack
+  (`EffectComposer`: subtle **DoF** focused on the featured exhibit so the background
+  softly blurs, **Bloom** on the bright water/emitters, **Vignette**, default
+  `ToneMapping`). Curated **framed prints** (saved thumbnails) hang above alternating
+  exhibits; minimal benches in the open hall. **Camera = a museum walk, not orbit**:
+  damped `CameraControls` (inertia via `smoothTime`, slow dolly/truck); clicking a
+  tank glides to its viewing **waypoint** and shows a plaque (name + **Open scape** /
+  **Step back**). **Showcase mode** (header toggle) auto-features one exhibit every
+  ~17s, slowly transitioning the camera between them — a luxury archviz walkthrough.
+  ponytail ceilings: every tank renders its own lights/fish (fine for dozens, add
+  LOD/instancing for hundreds); no hand-rolled head-bob (CameraControls inertia
+  carries the feel)).
   Both: click → `loadLayout` + `setCurrent`, **New scape** → `reset()`. Grid
   tiles are **live 3D** (`LiveTank` in `src/components/scene/LiveTank.tsx`): an
   IntersectionObserver mounts a small `<Canvas>` per on-screen tile that renders
@@ -197,6 +208,19 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 - **Editing loop:** click a piece → `selectItem` → drei `TransformControls`
   (move/rotate/scale) writes the transform back to the store `onObjectChange`.
   `OrbitControls makeDefault` lets TransformControls auto-disable orbit mid-drag.
+- **Clean & Polish** (Toolbar **✨ Clean** → `cleanScape` action → pure
+  `src/lib/autoScape.ts`): one-click tidy + style-driven fill. **Removes** any
+  hardscape/plant piece whose center sits outside the glass (`|x|>w/2 || |z|>d/2`)
+  — they're deleted, not relocated inside — reseats the rest on the
+  substrate top (`sampleField`), nudges a near-centered dominant stone onto the
+  nearest rule-of-thirds line, seeds an odd stone cluster if the scape has none
+  (skipped for plant-led Dutch), and plants only the layers the style
+  (`s.style ?? "nature"`, see `FILL_PLANS`) is **missing** (carpet/midground/
+  background, blades seated per-surface) — existing planting is left alone. The
+  lib is data-light (only `./terrain` + `./types`; species + `newId` are injected)
+  so it has a `node`-runnable self-check and never touches GPU/store state. Wrapped
+  in `beginTxn`/`endTxn` → one undo step. ponytail ceiling: "fill" is per-category
+  presence, not spatial coverage — add a coverage scan if sparse fills annoy.
 - **Backdrop** (`src/components/scene/Backdrop.tsx`): two independent things —
   (1) **scene ambience** = the room/clear-color behind everything (`ambience`
   hex in the store, dark→light swatches), and (2) the **tank backdrop**, a
@@ -300,7 +324,9 @@ hardcoded lights), plant browser with filters
 freehand **draw tool** (drag to paint plants, level sand/gravel/soil patches, or
 **sculpt the substrate** into hills/valleys that slump like real soil),
 **composition guides** (rule-of-thirds / golden-ratio grid drawn on the front,
-back, or both glass panes) + style presets, a **growth slider** (just-planted → grown-in,
+back, or both glass panes) + style presets, a one-click **✨ Clean** (remove
+pieces left outside the tank + reseat the rest + nudge the focal stone to a
+thirds line + style-driven fill of the missing plant layers), a **growth slider** (just-planted → grown-in,
 scaling plant height + fullness), a global **color grade**
 (brightness/contrast/saturation/tint post-process, captured in screenshots),
 quality slider, orbit

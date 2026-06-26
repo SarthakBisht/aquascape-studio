@@ -19,7 +19,7 @@ export function ColorGrade() {
   }
   return (
     <EffectComposer>
-      <BrightnessContrast brightness={g.brightness} contrast={g.contrast} />
+      <BrightnessContrast brightness={g.brightness * 0.5} contrast={g.contrast * 0.6} />
       <HueSaturation hue={(g.hue * Math.PI) / 180} saturation={g.saturation} />
     </EffectComposer>
   );

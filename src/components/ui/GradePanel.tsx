@@ -51,9 +51,9 @@ export function GradePanel() {
   return (
     <Panel title="Color grade">
       <div className="space-y-1.5">
-        <Slider label="Brightness" value={grade.brightness} min={-1} max={1} step={0.02} display={pct("brightness")} onChange={(v) => setGrade({ brightness: v })} />
-        <Slider label="Contrast" value={grade.contrast} min={-1} max={1} step={0.02} display={pct("contrast")} onChange={(v) => setGrade({ contrast: v })} />
-        <Slider label="Saturation" value={grade.saturation} min={-1} max={1} step={0.02} display={pct("saturation")} onChange={(v) => setGrade({ saturation: v })} />
+        <Slider label="Brightness" value={grade.brightness} min={-0.2} max={0.2} step={0.01} display={pct("brightness")} onChange={(v) => setGrade({ brightness: v })} />
+        <Slider label="Contrast" value={grade.contrast} min={-0.3} max={0.3} step={0.01} display={pct("contrast")} onChange={(v) => setGrade({ contrast: v })} />
+        <Slider label="Saturation" value={grade.saturation} min={-0.4} max={0.4} step={0.01} display={pct("saturation")} onChange={(v) => setGrade({ saturation: v })} />
         <Slider label="Tint" value={grade.hue} min={0} max={360} step={2} display={`${Math.round(grade.hue)}°`} onChange={(v) => setGrade({ hue: v })} />
       </div>
       <div className="mt-2.5 flex justify-end">

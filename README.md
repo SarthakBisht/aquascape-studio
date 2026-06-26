@@ -93,14 +93,24 @@ design a hardscape + planting layout, orbit around it from any angle, then
 - **Gallery** — save scapes into a personal, contest-style **gallery**: press
   **Save** and the tank is flooded for the shot, so every tile is an underwater
   hero image. View your scapes two ways: a dark **Grid** of live 3D tiles, or a
-  **Showroom** — a **navigable 3D gallery room** where every saved tank is placed
-  and running on a lit cabinet along the wall, in a cozy, warm-lit lounge — just
-  like walking into a real aquascaping showroom. Each tank is **flooded and lit by
-  its own light rig, with its own fish swimming** (the count / size / palette /
-  pattern you set). Free-look with the mouse (drag to look, right-drag to move
-  through the room, scroll to zoom), hover a tank to read its name, click to open
-  it (its full look — lights, fish, color grade, underwater settings — comes
-  back). Or start a fresh **New scape**. Stored locally in your browser.
+  **Showroom** — a premium **ADA-style Nature Aquarium Gallery** where each saved
+  tank is a museum piece: identical matte cabinets aligned down a dark, off-white
+  hall over a polished-concrete floor, every tank under its own suspended pendant,
+  the largest pulled forward as a hero centrepiece. The room stays dark and each
+  aquarium **brightens as you approach it**; dust drifts in the light, the
+  background softly blurs (depth of field), and the bright water glows (bloom).
+  Each tank is **flooded and lit by its own light rig, with its own fish swimming**
+  (the count / size / palette / pattern you set). Move like a museum walk — damped,
+  cinematic camera (drag to look, right-drag to walk, scroll to move); click a tank
+  to **glide** to it and open it (its full look — lights, fish, color grade,
+  underwater settings — comes back). Flip on **Showcase mode** and the camera slowly
+  tours one featured aquarium after another. Or start a fresh **New scape**. Stored
+  locally in your browser.
+- **✨ Clean** — one-click tidy & fill. **Removes** any hardscape (or plants)
+  left sitting *outside* the tank, reseats the rest on the substrate, nudges the
+  dominant stone onto a rule-of-thirds line, and plants the layers your scape is
+  missing for its style (carpet / midground / background). One undo step; keeps
+  the work you've already done inside the tank.
 - **Camera** — orbit / zoom / pan around the tank.
 - **Color grade** — global **brightness / contrast / saturation / tint** over the
   whole render (post-process, so screenshots keep the look). Reset to neutral.
