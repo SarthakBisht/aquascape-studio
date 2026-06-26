@@ -49,8 +49,10 @@ wow factor, not production hardening.
   `src/data/hardscapeMaterials.ts`; a **rock form** (base primitive + sculpt
   defaults) in `src/data/rockForms.ts`; a **PBR surface** in
   `src/data/hardscapeTextures.ts`; a plant in `src/data/plants.ts`; a tank size
-  in `src/data/tankPresets.ts`. The palette, pickers, and renderers all read from
-  these lists — don't hardcode items in components.
+  in `src/data/tankPresets.ts`; a fertilizer salt / remin product / EI target /
+  substrate density / light band in `src/data/dosing.ts` (calculator tables). The
+  palette, pickers, renderers, and calculators all read from these lists — don't
+  hardcode items in components.
 - Share types via `src/lib/types.ts`. Single zustand store in
   `src/store/useStudioStore.ts`; transient editor state (`selectedId`,
   `transformMode`, `activePlantId`, `tool`) is **not** persisted (see
@@ -78,13 +80,15 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        ├─ ColorGrade (EffectComposer, mounted only when grade ≠ neutral)
        └─ OrbitControls(makeDefault); paint raycasts Substrate/Hardscape,
           deselect via Canvas onPointerMissed
-  └─ UI overlay: Toolbar (Clean · Save · Gallery · Capture · Export/Import · Reset) ·
+  └─ UI overlay: Toolbar (Clean · Save · Gallery · Calc · Capture · Export/Import · Reset) ·
      TankPanel · HardscapePalette (+ DrawShapeModal,
      PhotoTo3DModal) · HardscapeEditPanel · DrawPanel · BackgroundPanel ·
      LightPanel · GradePanel ·
      (PlantBrowser in design / FishPanel underwater) · SelectionBar
   └─ Gallery (full-screen overlay, mounted when libraryStore.galleryOpen):
      Grid | Showroom views of saved scapes; open one → loadLayout, New → reset
+  └─ CalculatorOverlay (full-screen overlay, local `calcOpen` state in Studio):
+     manual aquascaping calculators, see "Calculators" below
 ```
 - **`useStudioStore`** is the single source of truth: tank dims, substrate,
   style, `hardscape[]`, `plants[]`, `lights[]` (the overhead rig), plus view
@@ -216,6 +220,25 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   piece inside the tank is left exactly as placed (same object refs). The lib is
   dependency-free (only `./types`) so it has a `node`-runnable self-check and never
   touches GPU/store state. Wrapped in `beginTxn`/`endTxn` → one undo step.
+- **Calculators** (Toolbar **🧮 Calc** → `CalculatorOverlay`, full-screen overlay
+  via a local `calcOpen` useState in `Studio.tsx` — **no store flag**, mirrors the
+  Gallery shell): a manual aquascaping reference. **Pure math** lives in
+  `src/lib/aquacalc.ts` (dependency-free, `node`-runnable self-check like
+  `autoScape.ts` — functions take looked-up numbers as args so the lib stays pure),
+  **reference tables** in `src/data/dosing.ts` (salts + element mass fractions, EI
+  targets, remin products with editable dose rates, substrate densities, light
+  bands). Tabs grouped Water&volume / Dosing&chemistry / Equipment / Composition:
+  volume (gross/net + gal), substrate (vol/bags/weight), water-change & dilution,
+  unit converter, dry-salt↔ppm + EI, CO₂ from pH/KH, GH/KH remin, filter turnover,
+  heater wattage, lighting W/lm per L, composition focal points, rough stocking.
+  Pre-fills inputs from the **live `tank`/`substrate`** (net-volume estimate
+  `estNet` shared to chemistry/equipment tabs). **Two-way:** the Volume and
+  Substrate tabs have **Apply** buttons that call the existing `setTank` /
+  `setSubstrate` (no new store actions). Inputs are kept as **strings** (parsed via
+  `num()`) so decimals type cleanly; state is transient (reopen reseeds from live
+  values). ponytail ceilings: lighting is W/L & lm/L ballpark (real PAR needs a
+  meter), stocking is a rough cm-per-L guide, heater `K` + remin rate are editable
+  calibration knobs — all flagged in-UI.
 - **Backdrop** (`src/components/scene/Backdrop.tsx`): two independent things —
   (1) **scene ambience** = the room/clear-color behind everything (`ambience`
   hex in the store, dark→light swatches), and (2) the **tank backdrop**, a

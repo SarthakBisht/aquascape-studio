@@ -2,6 +2,7 @@
 
 import { useStudioStore } from "@/store/useStudioStore";
 import { FISH_MODELS } from "@/data/fishModels";
+import { fishCountLimit } from "@/lib/units";
 import { Panel, Btn, Swatch } from "./primitives";
 import type { FishPalette, FishPattern } from "@/lib/types";
 
@@ -59,11 +60,13 @@ function Slider({
 export function FishPanel() {
   const fish = useStudioStore((s) => s.fish);
   const setFish = useStudioStore((s) => s.setFish);
+  const tank = useStudioStore((s) => s.tank);
+  const maxCount = fishCountLimit(tank);
 
   return (
     <Panel title="Fish">
       <div className="space-y-1.5">
-        <Slider label="Count" value={fish.count} min={0} max={40} step={1} suffix="" onChange={(v) => setFish({ count: v })} />
+        <Slider label="Count" value={Math.min(fish.count, maxCount)} min={0} max={maxCount} step={1} suffix="" onChange={(v) => setFish({ count: v })} />
         <Slider label="Size" value={fish.size} min={0.4} max={2.5} step={0.1} suffix="×" onChange={(v) => setFish({ size: v })} />
         <Slider label="Speed" value={fish.speed} min={0.2} max={2.5} step={0.1} suffix="×" onChange={(v) => setFish({ speed: v })} />
       </div>

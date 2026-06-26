@@ -24,6 +24,7 @@ import type {
   ViewMode,
 } from "@/lib/types";
 import { fieldGrid, makeLinearField, sculptField } from "@/lib/terrain";
+import { fishCountLimit, growthLimit } from "@/lib/units";
 import { cleanScape as runCleanScape } from "@/lib/autoScape";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { resolveSubstrate } from "@/data/substrates";
@@ -290,7 +291,12 @@ export const useStudioStore = create<StudioState>()(
 
       setTank: (dims) => {
         get().pushHistory();
-        set({ tank: dims });
+        set((s) => ({
+          tank: dims,
+          // Volume-driven caps: a smaller tank can't hold the old fish/growth.
+          fish: { ...s.fish, count: Math.min(s.fish.count, fishCountLimit(dims)) },
+          growth: Math.min(s.growth, growthLimit(dims)),
+        }));
       },
       setSubstrate: (patch) => {
         get().pushHistory();

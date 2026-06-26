@@ -124,6 +124,15 @@ design a hardscape + planting layout, orbit around it from any angle, then
 - **✨ Clean** — one-click trim. **Removes** any hardscape, plant, or substrate
   patch left sitting *outside* the tank. Nothing is added or moved — everything
   inside the glass is kept exactly as you placed it. One undo step.
+- **🧮 Calculators** — a manual aquascaping calculator (toolbar **Calc**),
+  pre-filled from your live tank/substrate. Bundles: **Water & volume** (gross/net
+  litres + US/UK gallons, substrate volume / bags / weight, water-change % &
+  dilution-to-target, unit converter), **Dosing & chemistry** (dry-salt ↔ ppm for
+  KNO₃/KH₂PO₄/K₂SO₄/MgSO₄/CaSO₄/CSM+B with EI weekly targets, CO₂ from pH + KH,
+  GH/KH remineralization), and **Equipment** (filter turnover, heater wattage,
+  light watts/lumens per litre) plus **composition** focal points and a rough
+  **stocking** guide. Volume and Substrate have **Apply** buttons that push the
+  result straight back into the scene.
 - **Camera** — orbit / zoom / pan around the tank.
 - **Color grade** — global **brightness / contrast / saturation / tint** over the
   whole render (post-process, so screenshots keep the look). Reset to neutral.
@@ -191,14 +200,14 @@ src/
     ui/                Toolbar, TankPanel, HardscapePalette, HardscapeEditPanel,
                        DrawShapeModal, PhotoTo3DModal, LightPanel, DrawPanel,
                        BackgroundPanel, PlantBrowser, SelectionBar, Gallery,
-                       primitives
+                       CalculatorOverlay, primitives
   store/useStudioStore.ts   editor state — single zustand store (persisted)
   store/useLibraryStore.ts  saved-scape gallery (separate persisted store)
   data/                tankPresets, hardscapeMaterials, hardscapeTextures,
-                       plants, stylePresets
+                       plants, stylePresets, dosing (calculator reference tables)
   lib/                 types, units, proceduralRock, driftwood, inflate,
                        heightfieldMesh, hardscapeTextureGen, depthFromImage,
-                       persistence
+                       aquacalc (calculator formulas), persistence
 public/ASSETS.md       where to drop CC0 models/textures/HDRIs
 ```
 

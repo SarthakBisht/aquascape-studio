@@ -137,7 +137,10 @@ export function Fish({
 }) {
   const storeFish = useStudioStore((s) => s.fish);
   const cfg = fish ?? storeFish;
-  const count = Math.max(0, Math.min(60, Math.round(cfg.count)));
+  // ponytail: no hard cap — count comes from the volume-scaled slider
+  // (fishCountLimit). O(n²) boid neighbour loop, fine for low hundreds; add a
+  // spatial grid if a giant tank chugs.
+  const count = Math.max(0, Math.round(cfg.count));
   const groupRefs = useRef<(THREE.Group | null)[]>([]);
   const tailRefs = useRef<(THREE.Group | null)[]>([]);
 

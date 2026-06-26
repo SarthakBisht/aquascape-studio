@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { useLibraryStore } from "@/store/useLibraryStore";
 import { exportLayoutFile, importLayoutFile } from "@/lib/persistence";
+import { growthLimit } from "@/lib/units";
 import { Btn } from "./primitives";
 import type { Quality, GuideFace, GuideRatio } from "@/lib/types";
 
@@ -12,9 +13,11 @@ const QUALITIES: Quality[] = ["low", "medium", "high"];
 export function Toolbar({
   onScreenshot,
   onSaveScape,
+  onOpenCalc,
 }: {
   onScreenshot: () => void;
   onSaveScape: () => void;
+  onOpenCalc: () => void;
 }) {
   const mode = useStudioStore((s) => s.mode);
   const setMode = useStudioStore((s) => s.setMode);
@@ -28,6 +31,7 @@ export function Toolbar({
   const setGuides = useStudioStore((s) => s.setGuides);
   const growth = useStudioStore((s) => s.growth);
   const setGrowth = useStudioStore((s) => s.setGrowth);
+  const maxGrowth = growthLimit(useStudioStore((s) => s.tank));
   const quality = useStudioStore((s) => s.quality);
   const setQuality = useStudioStore((s) => s.setQuality);
   const zen = useStudioStore((s) => s.zen);
@@ -150,9 +154,9 @@ export function Toolbar({
           <input
             type="range"
             min={0}
-            max={1}
+            max={maxGrowth}
             step={0.01}
-            value={growth}
+            value={Math.min(growth, maxGrowth)}
             onChange={(e) => setGrowth(Number(e.target.value))}
             className="h-1 w-20 cursor-pointer accent-moss"
           />
@@ -183,6 +187,9 @@ export function Toolbar({
           title="Browse your saved aquascapes"
         >
           ▦ Gallery{scapeCount > 0 ? ` (${scapeCount})` : ""}
+        </Btn>
+        <Btn onClick={onOpenCalc} title="Aquascaping calculators (volume, dosing, CO₂, equipment…)">
+          🧮 Calc
         </Btn>
 
         <span className="mx-0.5 h-5 w-px bg-mist/10" />

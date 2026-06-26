@@ -9,6 +9,7 @@ import { screenshotCanvas, captureThumbnail } from "@/lib/persistence";
 import { TankScene } from "./scene/TankScene";
 import { Toolbar } from "./ui/Toolbar";
 import { Gallery } from "./ui/Gallery";
+import { CalculatorOverlay } from "./ui/CalculatorOverlay";
 import { TankPanel } from "./ui/TankPanel";
 import { HardscapePalette } from "./ui/HardscapePalette";
 import { HardscapeEditPanel } from "./ui/HardscapeEditPanel";
@@ -37,6 +38,7 @@ export function Studio() {
     (s) => s.hardscape.length === 0 && s.plants.length === 0,
   );
   const galleryOpen = useLibraryStore((s) => s.galleryOpen);
+  const [calcOpen, setCalcOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // WebGL only mounts on the client — avoids SSR/window issues.
@@ -169,7 +171,11 @@ export function Studio() {
 
       {/* UI overlay — dissolves in Zen mode so only the scape remains */}
       <div className="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3">
-        <Toolbar onScreenshot={onScreenshot} onSaveScape={onSaveScape} />
+        <Toolbar
+          onScreenshot={onScreenshot}
+          onSaveScape={onSaveScape}
+          onOpenCalc={() => setCalcOpen(true)}
+        />
         <div
           className={`flex min-h-0 flex-1 gap-3 transition-all duration-[1100ms] ease-out ${
             zen ? "pointer-events-none translate-y-1 opacity-0" : "opacity-100"
@@ -199,6 +205,7 @@ export function Studio() {
       </div>
 
       {galleryOpen && <Gallery />}
+      {calcOpen && <CalculatorOverlay onClose={() => setCalcOpen(false)} />}
     </div>
   );
 }
