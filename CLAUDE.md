@@ -209,19 +209,13 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 - **Editing loop:** click a piece → `selectItem` → drei `TransformControls`
   (move/rotate/scale) writes the transform back to the store `onObjectChange`.
   `OrbitControls makeDefault` lets TransformControls auto-disable orbit mid-drag.
-- **Clean & Polish** (Toolbar **✨ Clean** → `cleanScape` action → pure
-  `src/lib/autoScape.ts`): one-click tidy + style-driven fill. **Removes** any
-  hardscape/plant piece whose center sits outside the glass (`|x|>w/2 || |z|>d/2`)
-  — they're deleted, not relocated inside — reseats the rest on the
-  substrate top (`sampleField`), nudges a near-centered dominant stone onto the
-  nearest rule-of-thirds line, seeds an odd stone cluster if the scape has none
-  (skipped for plant-led Dutch), and plants only the layers the style
-  (`s.style ?? "nature"`, see `FILL_PLANS`) is **missing** (carpet/midground/
-  background, blades seated per-surface) — existing planting is left alone. The
-  lib is data-light (only `./terrain` + `./types`; species + `newId` are injected)
-  so it has a `node`-runnable self-check and never touches GPU/store state. Wrapped
-  in `beginTxn`/`endTxn` → one undo step. ponytail ceiling: "fill" is per-category
-  presence, not spatial coverage — add a coverage scan if sparse fills annoy.
+- **Clean** (Toolbar **✨ Clean** → `cleanScape` action → pure
+  `src/lib/autoScape.ts`): one-click trim — **removes only** any hardscape/plant/
+  ground piece whose center sits outside the glass (`|x|>w/2 || |z|>d/2`); they're
+  deleted, not relocated inside. Nothing is added, reseated, or nudged — every
+  piece inside the tank is left exactly as placed (same object refs). The lib is
+  dependency-free (only `./types`) so it has a `node`-runnable self-check and never
+  touches GPU/store state. Wrapped in `beginTxn`/`endTxn` → one undo step.
 - **Backdrop** (`src/components/scene/Backdrop.tsx`): two independent things —
   (1) **scene ambience** = the room/clear-color behind everything (`ambience`
   hex in the store, dark→light swatches), and (2) the **tank backdrop**, a
@@ -342,8 +336,7 @@ freehand **draw tool** (drag to paint plants, level sand/gravel/soil patches, or
 **sculpt the substrate** into hills/valleys that slump like real soil),
 **composition guides** (rule-of-thirds / golden-ratio grid drawn on the front,
 back, or both glass panes) + style presets, a one-click **✨ Clean** (remove
-pieces left outside the tank + reseat the rest + nudge the focal stone to a
-thirds line + style-driven fill of the missing plant layers), a **growth slider** (just-planted → grown-in,
+only the pieces left outside the tank — nothing added or moved), a **growth slider** (just-planted → grown-in,
 scaling plant height + fullness), a global **color grade**
 (brightness/contrast/saturation/tint post-process, captured in screenshots),
 quality slider, orbit

@@ -104,6 +104,9 @@ function paintGround(e: ThreeEvent<PointerEvent>) {
   const s = useStudioStore.getState();
   if (!s.activeGround) return;
   const p = e.point;
+  // Don't seed patches outside the glass (the disc is clipped to the tank too).
+  const { width, depth } = s.tank;
+  if (Math.abs(p.x) > width / 2 || Math.abs(p.z) > depth / 2) return;
   s.addGroundPatch(s.activeGround, [p.x, p.y, p.z] as Vec3);
 }
 

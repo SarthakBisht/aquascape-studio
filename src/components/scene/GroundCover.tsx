@@ -36,16 +36,25 @@ function buildPatchGeometry(
     );
   };
 
-  const pos: number[] = [0, yAt(cx, cz), 0];
-  const uv: number[] = [0.5, 0.5];
+  // Clip every vertex to the substrate footprint so a patch painted near an edge
+  // can't spill past the glass — the disc edge collapses onto the tank boundary.
+  const hw = innerW / 2;
+  const hd = innerD / 2;
+  const pos: number[] = [];
+  const uv: number[] = [];
+  const vert = (lx: number, lz: number) => {
+    const bx = THREE.MathUtils.clamp(cx + lx, -hw, hw);
+    const bz = THREE.MathUtils.clamp(cz + lz, -hd, hd);
+    pos.push(bx - cx, yAt(bx, bz), bz - cz);
+    uv.push((bx - cx) / (2 * radius) + 0.5, (bz - cz) / (2 * radius) + 0.5);
+  };
+
+  vert(0, 0); // centre
   for (let ring = 1; ring <= RINGS; ring++) {
     const rr = (radius * ring) / RINGS;
     for (let s = 0; s < SEG; s++) {
       const ang = (s / SEG) * Math.PI * 2;
-      const lx = Math.cos(ang) * rr;
-      const lz = Math.sin(ang) * rr;
-      pos.push(lx, yAt(cx + lx, cz + lz), lz);
-      uv.push(lx / (2 * radius) + 0.5, lz / (2 * radius) + 0.5);
+      vert(Math.cos(ang) * rr, Math.sin(ang) * rr);
     }
   }
 

@@ -114,11 +114,9 @@ design a hardscape + planting layout, orbit around it from any angle, then
   underwater settings — comes back). Flip on **Showcase mode** and the camera slowly
   tours one featured aquarium after another. Or start a fresh **New scape**. Stored
   locally in your browser.
-- **✨ Clean** — one-click tidy & fill. **Removes** any hardscape (or plants)
-  left sitting *outside* the tank, reseats the rest on the substrate, nudges the
-  dominant stone onto a rule-of-thirds line, and plants the layers your scape is
-  missing for its style (carpet / midground / background). One undo step; keeps
-  the work you've already done inside the tank.
+- **✨ Clean** — one-click trim. **Removes** any hardscape, plant, or substrate
+  patch left sitting *outside* the tank. Nothing is added or moved — everything
+  inside the glass is kept exactly as you placed it. One undo step.
 - **Camera** — orbit / zoom / pan around the tank.
 - **Color grade** — global **brightness / contrast / saturation / tint** over the
   whole render (post-process, so screenshots keep the look). Reset to neutral.
