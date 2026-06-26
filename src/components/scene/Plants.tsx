@@ -7,7 +7,8 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { useStudioStore } from "@/store/useStudioStore";
 import { getSpecies } from "@/data/plants";
 import { usePlantTexture } from "@/lib/plantTextures";
-import type { PlantForm, PlantPlacement, Quality } from "@/lib/types";
+import { plantHabit } from "@/lib/plantHabit";
+import type { PlantForm, PlantHabit, PlantPlacement, Quality } from "@/lib/types";
 
 // Plants as crossed photographic billboards (two perpendicular alpha cards), so
 // foliage reads as real leaves from any orbit angle. Each blade is seated on the
@@ -16,6 +17,19 @@ import type { PlantForm, PlantPlacement, Quality } from "@/lib/types";
 // fills with scaled, color-varied, gently swaying plants.
 
 const QUALITY_DENSITY: Record<Quality, number> = { low: 0.4, medium: 0.7, high: 1 };
+
+// Billboard textures (bright studio-lit cutouts) wash out under the strong light
+// rig. Two knobs keep foliage "fresh vegetable" instead of blown-white or dull:
+//   PLANT_ALBEDO  — multiply on the texture (dim = less white blowout). Neutral
+//                   grey so reds (alternanthera) deepen too. Lower→darker.
+//   PLANT_EMISSIVE— self-glow of the leaf's OWN colour (emissiveMap = texture),
+//                   fills shadows with green so it reads lush, not flat. Higher→
+//                   fresher/punchier (but too high looks neon).
+const PLANT_ALBEDO = "#a6a6a6";
+const PLANT_EMISSIVE = 0.14;
+// Gentle wet-leaf sheen = "fresh". Lower roughness = glossier; below ~0.7 it
+// blows white highlights on lit faces (don't). 0.82 reads fresh, not plastic.
+const PLANT_ROUGHNESS = 0.82;
 
 const FORM_WIDTH: Record<PlantForm, number> = {
   blade: 0.4,
@@ -56,10 +70,20 @@ interface RenderBlade {
   z: number;
   baseY: number; // local y (relative to patch center) the blade sits on
   h: number;
+  w: number; // width in cm (decoupled from h so lily leaves stay put as the stem climbs)
   yaw: number;
   lean: number;
   tint: number;
 }
+
+// Neutral fallback when a species can't be resolved (deleted custom plant).
+const DEFAULT_HABIT: PlantHabit = {
+  anchor: "substrate",
+  heightGain: 0.9,
+  fullnessGain: 0.6,
+  leafScalesWithHeight: true,
+  rateScalar: 0.8,
+};
 
 function Patch({ placement }: { placement: PlantPlacement }) {
   const growth = useStudioStore((s) => s.growth);
@@ -87,6 +111,11 @@ function Patch({ placement }: { placement: PlantPlacement }) {
   const widthRatio = aspect ?? FORM_WIDTH[species?.form ?? "blade"];
   const userScale = placement.scale ?? 1;
   const baseWorldY = placement.position[1];
+  // Botanical character: how this species grows + where it sits (Part F).
+  const habit = useMemo(
+    () => (species ? plantHabit(species) : DEFAULT_HABIT),
+    [species],
+  );
 
   const count = Math.max(
     5,
@@ -112,40 +141,65 @@ function Patch({ placement }: { placement: PlantPlacement }) {
   const blades = useMemo<RenderBlade[]>(() => {
     const [minH, maxH] = species?.heightCm ?? [4, 8];
     const youngH = minH * 0.55;
-    const targetH = (youngH + (maxH - youngH) * growth) * userScale;
-    // Fullness: reveal more of the pre-sampled blades as the scape grows in.
-    const visible = Math.max(5, Math.round(count * (0.5 + 0.5 * growth)));
+    // Per-species growth: heightGain compresses the range (carpets stay low,
+    // stems shoot up); rateScalar slows slow-growers; never exceed natural max.
+    const g = growth * habit.rateScalar;
+    const targetH = Math.min(
+      (youngH + (maxH - youngH) * habit.heightGain * g) * userScale,
+      maxH * userScale,
+    );
+    // Fullness: how much the patch fills in as it grows (carpet/moss fill,
+    // epiphytes stay sparse).
+    const visible = Math.max(
+      5,
+      Math.round(count * (0.5 + 0.5 * growth * habit.fullnessGain)),
+    );
+    const waterline = tankHeight * 0.96;
+    const surface = habit.anchor === "surface";
     const capAt = (surfaceWorldY: number) =>
-      Math.max(2, tankHeight * 0.96 - surfaceWorldY);
+      Math.max(2, waterline - surfaceWorldY);
+    // Lily-type: leaf width fixed (≈ youngH) so the stem climbs without the
+    // leaf ballooning. Otherwise width tracks height (b.h * widthRatio applied
+    // at compose time, so w carries only the cm scale here).
+    // ponytail: single-billboard proxy — a tall card that doesn't widen reads
+    // as a rising stem; swap for stem+pad geometry if you want a true lily.
+    const widthOf = (h: number) =>
+      habit.leafScalesWithHeight ? h : Math.max(youngH, minH) * userScale;
 
     // Preferred path: blades pre-sampled onto the real surface at paint time.
     if (placement.blades && placement.blades.length) {
       const n = Math.min(visible, placement.blades.length);
-      return placement.blades.slice(0, n).map((b) => ({
-        x: b.x,
-        z: b.z,
-        baseY: b.y - baseWorldY,
-        h: Math.min(targetH * b.hMul, capAt(b.y)),
-        yaw: b.yaw,
-        lean: b.lean,
-        tint: 0.5 + Math.abs(Math.sin(b.x * 12.9 + b.z * 4.7)) * 0.3,
-      }));
+      return placement.blades.slice(0, n).map((b) => {
+        const h = Math.min(targetH * b.hMul, capAt(surface ? waterline : b.y));
+        return {
+          x: b.x,
+          z: b.z,
+          baseY: (surface ? waterline : b.y) - baseWorldY,
+          h,
+          w: widthOf(h),
+          yaw: b.yaw,
+          lean: b.lean,
+          tint: 0.58 + Math.abs(Math.sin(b.x * 12.9 + b.z * 4.7)) * 0.17,
+        };
+      });
     }
 
     // Fallback for legacy patches: flat scatter at the patch plane.
     const rand = mulberry32(hashSeed(placement.id));
-    const cap = capAt(baseWorldY);
+    const cap = capAt(surface ? waterline : baseWorldY);
     return Array.from({ length: visible }, () => {
       const ang = rand() * Math.PI * 2;
       const r = Math.sqrt(rand()) * placement.radius;
+      const h = Math.min(targetH * (0.5 + rand() * 1.1), cap);
       return {
         x: Math.cos(ang) * r,
         z: Math.sin(ang) * r,
-        baseY: 0,
-        h: Math.min(targetH * (0.5 + rand() * 1.1), cap),
+        baseY: surface ? waterline - baseWorldY : 0,
+        h,
+        w: widthOf(h),
         yaw: rand() * Math.PI * 2,
         lean: (rand() - 0.5) * 0.55,
-        tint: 0.5 + rand() * 0.32,
+        tint: 0.58 + rand() * 0.17,
       };
     });
   }, [
@@ -155,6 +209,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
     baseWorldY,
     count,
     species?.heightCm,
+    habit,
     growth,
     userScale,
     tankHeight,
@@ -173,7 +228,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
       e.set(b.lean, b.yaw, b.lean * 0.5);
       q.setFromEuler(e);
       pos.set(b.x, b.baseY, b.z);
-      scl.set(b.h * widthRatio, b.h, b.h * widthRatio);
+      scl.set(b.w * widthRatio, b.h, b.w * widthRatio);
       m.compose(pos, q, scl);
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, col.setScalar(b.tint));
@@ -196,10 +251,13 @@ function Patch({ placement }: { placement: PlantPlacement }) {
       <instancedMesh key={count} ref={ref} args={[CROSS_GEO, undefined, count]}>
         <meshStandardMaterial
           map={texture}
-          color={hasImage ? "#ffffff" : (species?.color ?? "#4f9a3f")}
+          color={hasImage ? PLANT_ALBEDO : (species?.color ?? "#4f9a3f")}
+          emissiveMap={hasImage ? texture : undefined}
+          emissive={hasImage ? "#ffffff" : "#000000"}
+          emissiveIntensity={hasImage ? PLANT_EMISSIVE : 0}
           side={THREE.DoubleSide}
           alphaTest={0.5}
-          roughness={0.95}
+          roughness={hasImage ? PLANT_ROUGHNESS : 0.95}
           metalness={0}
           clippingPlanes={clipPlanes}
         />

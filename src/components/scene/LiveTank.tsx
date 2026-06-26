@@ -18,6 +18,7 @@ import { getMaterial } from "@/data/hardscapeMaterials";
 import { getSurface } from "@/data/hardscapeTextures";
 import { getRockForm } from "@/data/rockForms";
 import { getSpecies } from "@/data/plants";
+import { plantHabit } from "@/lib/plantHabit";
 import { makeRockGeometry } from "@/lib/proceduralRock";
 import { makeDriftwoodGeometry, DEFAULT_DRIFT } from "@/lib/driftwood";
 import { meshFromHeightfield, loadHeightField } from "@/lib/heightfieldMesh";
@@ -236,33 +237,57 @@ function PreviewPatch({
   );
 
   const blades = useMemo(() => {
+    // Mirror the editor's botanical character (Part F) so previews grow like
+    // the real scape: see Plants.tsx / lib/plantHabit.ts.
     const [minH, maxH] = species?.heightCm ?? [4, 8];
     const youngH = minH * 0.55;
-    const targetH = (youngH + (maxH - youngH) * growth) * userScale;
-    const capAt = (y: number) => Math.max(2, dims.height * 0.96 - y);
+    const h = species
+      ? plantHabit(species)
+      : { anchor: "substrate" as const, heightGain: 0.9, fullnessGain: 0.6, leafScalesWithHeight: true, rateScalar: 0.8 };
+    const g = growth * h.rateScalar;
+    const targetH = Math.min(
+      (youngH + (maxH - youngH) * h.heightGain * g) * userScale,
+      maxH * userScale,
+    );
+    const waterline = dims.height * 0.96;
+    const surface = h.anchor === "surface";
+    const capAt = (y: number) => Math.max(2, waterline - y);
+    const widthOf = (hh: number) =>
+      h.leafScalesWithHeight ? hh : Math.max(youngH, minH) * userScale;
     const src = placement.blades ?? [];
-    const visible = Math.max(5, Math.round(src.length * (0.5 + 0.5 * growth)));
+    const visible = Math.max(
+      5,
+      Math.round((src.length || 12) * (0.5 + 0.5 * growth * h.fullnessGain)),
+    );
     if (src.length)
-      return src.slice(0, visible).map((b) => ({
-        x: b.x,
-        z: b.z,
-        baseY: b.y - baseWorldY,
-        h: Math.min(targetH * b.hMul, capAt(b.y)),
-        yaw: b.yaw,
-        lean: b.lean,
-        tint: 0.5 + Math.abs(Math.sin(b.x * 12.9 + b.z * 4.7)) * 0.3,
-      }));
+      return src.slice(0, visible).map((b) => {
+        const hh = Math.min(targetH * b.hMul, capAt(surface ? waterline : b.y));
+        return {
+          x: b.x,
+          z: b.z,
+          baseY: (surface ? waterline : b.y) - baseWorldY,
+          h: hh,
+          w: widthOf(hh),
+          yaw: b.yaw,
+          lean: b.lean,
+          tint: 0.58 + Math.abs(Math.sin(b.x * 12.9 + b.z * 4.7)) * 0.17,
+        };
+      });
     // legacy flat scatter
-    return Array.from({ length: 12 }, (_, i) => ({
-      x: Math.cos(i) * placement.radius * 0.5,
-      z: Math.sin(i * 1.7) * placement.radius * 0.5,
-      baseY: 0,
-      h: Math.min(targetH, capAt(baseWorldY)),
-      yaw: i,
-      lean: 0,
-      tint: 0.7,
-    }));
-  }, [placement, species?.heightCm, growth, userScale, baseWorldY, dims.height]);
+    return Array.from({ length: 12 }, (_, i) => {
+      const hh = Math.min(targetH, capAt(surface ? waterline : baseWorldY));
+      return {
+        x: Math.cos(i) * placement.radius * 0.5,
+        z: Math.sin(i * 1.7) * placement.radius * 0.5,
+        baseY: surface ? waterline - baseWorldY : 0,
+        h: hh,
+        w: widthOf(hh),
+        yaw: i,
+        lean: 0,
+        tint: 0.7,
+      };
+    });
+  }, [placement, species, growth, userScale, baseWorldY, dims.height]);
 
   useLayoutEffect(() => {
     const mesh = ref.current;
@@ -277,7 +302,7 @@ function PreviewPatch({
       e.set(b.lean, b.yaw, b.lean * 0.5);
       q.setFromEuler(e);
       pos.set(b.x, b.baseY, b.z);
-      scl.set(b.h * widthRatio, b.h, b.h * widthRatio);
+      scl.set(b.w * widthRatio, b.h, b.w * widthRatio);
       m.compose(pos, q, scl);
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, col.setScalar(b.tint));
@@ -298,10 +323,13 @@ function PreviewPatch({
       <instancedMesh key={blades.length} ref={ref} args={[CROSS_GEO, undefined, Math.max(1, blades.length)]}>
         <meshStandardMaterial
           map={texture}
-          color={hasImage ? "#ffffff" : species?.color ?? "#4f9a3f"}
+          color={hasImage ? "#a6a6a6" : species?.color ?? "#4f9a3f"}
+          emissiveMap={hasImage ? texture : undefined}
+          emissive={hasImage ? "#ffffff" : "#000000"}
+          emissiveIntensity={hasImage ? 0.14 : 0}
           side={THREE.DoubleSide}
           alphaTest={0.5}
-          roughness={0.95}
+          roughness={hasImage ? 0.82 : 0.95}
           metalness={0}
           clippingPlanes={clipPlanes}
         />
@@ -324,14 +352,16 @@ export function PreviewLights({
    *  showroom (the room provides one fill; N tank fills would wash it out). */
   ambient?: boolean;
 }) {
-  const uw = underwater ? 0.7 : 1;
+  // Flooded gallery scapes read darker than the editor's design view; lift the
+  // underwater dim + fill so tiles/showroom are as fresh as the editor.
+  const uw = underwater ? 0.85 : 1;
   return (
     <>
       {ambient && (
         <>
-          <ambientLight intensity={underwater ? 0.3 : 0.35} />
+          <ambientLight intensity={underwater ? 0.42 : 0.35} />
           <hemisphereLight
-            intensity={underwater ? 0.35 : 0.4}
+            intensity={underwater ? 0.48 : 0.4}
             color={underwater ? "#cfeffb" : "#ffffff"}
             groundColor={underwater ? "#15303a" : "#cdbfae"}
           />
@@ -347,7 +377,7 @@ export function PreviewLights({
             <pointLight
               key={l.id}
               position={[l.x, dims.height + l.height, l.z]}
-              intensity={base * l.intensity * uw * 1.4}
+              intensity={base * l.intensity * uw * 1.6}
               decay={0}
               color={color}
             />
@@ -421,24 +451,16 @@ export function ScapeContent({
   );
 }
 
-/* ---- the turntable scene (grid tile) ---- */
+/* ---- the static scene (grid tile) ---- */
 function Scape({ layout }: { layout: Layout }) {
-  const groupRef = useRef<THREE.Group>(null);
   const dims = layout.tank;
   const underwater = layout.mode === "underwater";
   const lights = layout.lights ?? [];
 
-  // slow showroom turntable
-  useFrame((_, delta) => {
-    if (groupRef.current) groupRef.current.rotation.y += delta * 0.18;
-  });
-
   return (
     <>
       <PreviewLights lights={lights} dims={dims} underwater={underwater} />
-      <group ref={groupRef}>
-        <ScapeContent layout={layout} />
-      </group>
+      <ScapeContent layout={layout} />
     </>
   );
 }
@@ -487,7 +509,7 @@ export function LiveTank({
             const c = tankCenter(layout.tank);
             camera.lookAt(c[0], c[1], c[2]);
             gl.localClippingEnabled = true;
-            gl.setClearColor("#0f110d", 1); // opaque gallery ground
+            gl.setClearColor("#ffffff", 1); // white tile background
           }}
         >
           <Scape layout={layout} />

@@ -137,6 +137,12 @@ export function beginStroke(e: ThreeEvent<PointerEvent>): boolean {
 /** Pointer move while drawing — drop another dab once we've moved far enough. */
 export function moveStroke(e: ThreeEvent<PointerEvent>) {
   if (!stroke.active) return;
+  // No button held → the pointerup was missed (released off-canvas / over a
+  // panel / lost capture). End the stroke so plain hovering never paints.
+  if (e.buttons === 0) {
+    endStroke();
+    return;
+  }
   const s = useStudioStore.getState();
   if (s.tool === "select") return;
   const dx = e.point.x - stroke.lastX;

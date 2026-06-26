@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { Clone, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { useStudioStore } from "@/store/useStudioStore";
+import { getFishModel } from "@/data/fishModels";
 import type {
   FishConfig,
   FishPalette,
@@ -73,6 +75,40 @@ function Fish3D({
           <coneGeometry args={[1.1, 1.7, 4]} />
           <meshStandardMaterial color={color} roughness={0.6} transparent opacity={0.92} />
         </mesh>
+      </group>
+    </group>
+  );
+}
+
+// Real .glb fish: normalized to a unit length, calibrated by the model's
+// scale/rotationY, with a body-yaw wiggle standing in for the tail swish.
+function FishModelMesh({
+  url,
+  scale,
+  rotationY,
+  phase,
+}: {
+  url: string;
+  scale: number;
+  rotationY: number;
+  phase: number;
+}) {
+  const { scene } = useGLTF(url);
+  const norm = useMemo(() => {
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    return 1 / (Math.max(size.x, size.y, size.z) || 1);
+  }, [scene]);
+  const wiggle = useRef<THREE.Group>(null);
+  useFrame((state) => {
+    if (wiggle.current)
+      wiggle.current.rotation.y = Math.sin(state.clock.elapsedTime * 6 + phase) * 0.12;
+  });
+  return (
+    <group ref={wiggle}>
+      <group rotation={[0, rotationY, 0]} scale={norm * scale}>
+        <Clone object={scene} />
       </group>
     </group>
   );
@@ -218,6 +254,7 @@ export function Fish({
   });
 
   const colors = PALETTES[cfg.palette];
+  const model = getFishModel(cfg.modelId);
 
   return (
     <group>
@@ -229,12 +266,24 @@ export function Fish({
           }}
           scale={b.sizeVar * cfg.size}
         >
-          <Fish3D
-            color={colors[b.colorIndex % colors.length]}
-            tailRef={(el) => {
-              tailRefs.current[i] = el;
-            }}
-          />
+          {model ? (
+            // ponytail: model uses its own materials → palette tint is ignored.
+            <Suspense fallback={null}>
+              <FishModelMesh
+                url={model.model}
+                scale={model.scale ?? 3}
+                rotationY={model.rotationY ?? 0}
+                phase={b.phase}
+              />
+            </Suspense>
+          ) : (
+            <Fish3D
+              color={colors[b.colorIndex % colors.length]}
+              tailRef={(el) => {
+                tailRefs.current[i] = el;
+              }}
+            />
+          )}
         </group>
       ))}
     </group>

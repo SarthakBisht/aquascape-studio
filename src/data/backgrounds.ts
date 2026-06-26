@@ -95,8 +95,8 @@ export const DEFAULT_BACKGROUND: BackgroundConfig =
   BACKGROUND_PRESETS.find((p) => p.id === "backlit")?.config ??
   BACKGROUND_PRESETS[0].config;
 
-/** Default scene/room ambience — dark gallery keeps focus on the tank. */
-export const DEFAULT_AMBIENCE = "#0d0f0b";
+/** Default scene/room ambience — light, clean studio backdrop. */
+export const DEFAULT_AMBIENCE = "#cbcfc9";
 
 /** Quick-pick scene ambience colours (dark → light) for the Background panel. */
 export const AMBIENCE_PRESETS = [

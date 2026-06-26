@@ -1,6 +1,7 @@
 "use client";
 
 import { useStudioStore } from "@/store/useStudioStore";
+import { FISH_MODELS } from "@/data/fishModels";
 import { Panel, Btn, Swatch } from "./primitives";
 import type { FishPalette, FishPattern } from "@/lib/types";
 
@@ -66,6 +67,24 @@ export function FishPanel() {
         <Slider label="Size" value={fish.size} min={0.4} max={2.5} step={0.1} suffix="×" onChange={(v) => setFish({ size: v })} />
         <Slider label="Speed" value={fish.speed} min={0.2} max={2.5} step={0.1} suffix="×" onChange={(v) => setFish({ speed: v })} />
       </div>
+
+      {FISH_MODELS.length > 0 && (
+        <>
+          <div className="mb-1 mt-3 text-[10px] uppercase tracking-wide text-stone">
+            Species
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <Btn active={!fish.modelId} onClick={() => setFish({ modelId: undefined })}>
+              Stylized
+            </Btn>
+            {FISH_MODELS.map((m) => (
+              <Btn key={m.id} active={fish.modelId === m.id} onClick={() => setFish({ modelId: m.id })}>
+                {m.label}
+              </Btn>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="mb-1 mt-3 text-[10px] uppercase tracking-wide text-stone">
         Swimming

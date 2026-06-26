@@ -190,6 +190,24 @@ export type PlantForm =
   | "moss" // fuzzy clumps
   | "floating"; // surface leaves
 
+/**
+ * How a species behaves in its "natural state" — drives growth + placement so
+ * each plant grows like itself, not all alike. Mostly derived from form/category/
+ * growth in `lib/plantHabit.ts`; a species can override any field via `habit`.
+ */
+export interface PlantHabit {
+  /** Where it sits: rooted on the bed, or floating leaves at the waterline. */
+  anchor: "substrate" | "surface";
+  /** 0..1 — fraction of [minH,maxH] the growth slider traverses (stem=tall, carpet≈flat). */
+  heightGain: number;
+  /** 0..1 — how much density/fill rises as it grows in (carpet/moss fill, epiphyte stays sparse). */
+  fullnessGain: number;
+  /** false ⇒ leaf card width stays fixed while the stem grows (water lily). */
+  leafScalesWithHeight: boolean;
+  /** Per-slider change scalar by growth rate (slow plants change less). */
+  rateScalar: number;
+}
+
 export interface PlantSpecies {
   id: string;
   name: string;
@@ -210,6 +228,12 @@ export interface PlantSpecies {
    * to photoreal foliage. See public/ASSETS.md.
    */
   texture?: string;
+  /**
+   * Optional per-species overrides of the derived growth/placement character
+   * (see `lib/plantHabit.ts`). Only set where botany differs from the form's
+   * default — e.g. a water lily (`leafScalesWithHeight: false`).
+   */
+  habit?: Partial<PlantHabit>;
 }
 
 /** One scattered plant within a patch, with the surface height sampled under it. */
@@ -299,6 +323,22 @@ export interface FishConfig {
   speed: number;
   pattern: FishPattern;
   palette: FishPalette;
+  /** When set, render this .glb model (see data/fishModels.ts) instead of the
+   *  stylized procedural fish. Undefined ⇒ procedural (the palette applies). */
+  modelId?: string;
+}
+
+/** A real fish .glb model option (data-driven, like HardscapeMaterial). */
+export interface FishModel {
+  id: string;
+  label: string;
+  /** Path under /public, e.g. "/models/fish/tetra.glb". */
+  model: string;
+  /** Calibration knobs for the real asset's native units/orientation: the
+   *  loader normalizes longest axis to 1, then applies `scale`; `rotationY`
+   *  spins the model so its nose points along +X (the swim-forward axis). */
+  scale?: number;
+  rotationY?: number;
 }
 export type TransformMode = "translate" | "rotate" | "scale";
 

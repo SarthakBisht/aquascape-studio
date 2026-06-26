@@ -61,10 +61,15 @@ design a hardscape + planting layout, orbit around it from any angle, then
   (**Lumen** white · **Lagoon** blue · **Sunset** warm) — the contest "gold
   standard" for depth, with adjustable color, brightness, and glow position.
 - **Plants** — a classified, filterable browser (category · difficulty · light ·
-  CO₂). Select a species, then **click any surface — soil, stone, or driftwood —
-  to paint** a patch of **crossed photographic billboards** (real leaf
-  silhouettes per plant form, not grass-cones), correctly scaled & colored.
-  Plants always rest on the surface you clicked. A **brush** controls area /
+  CO₂) of **~50 real aquascaping species** across every layer (carpets, stems,
+  rosettes, epiphytes, mosses, floaters, lilies). Select a species, then **click
+  any surface — soil, stone, or driftwood — to paint** a patch of **crossed
+  photographic billboards** (real leaf silhouettes per plant form, not
+  grass-cones), correctly scaled & colored. Each species grows like **itself**:
+  stems shoot up to their natural max, carpets stay low and fill in, epiphytes
+  barely change, **floating plants ride the waterline**, and a **water lily's leaf
+  holds its size while the stem climbs** — slow growers move less than fast ones.
+  Plants always rest on the surface you clicked (floaters on the surface). A **brush** controls area /
   density / size. While planting, a pair of **tweezers** lowers a translucent
   **ghost sprig** of the chosen plant onto the cursor so you see exactly what
   lands where. Drop a cutout PNG into `public/plants/` to upgrade any species
@@ -97,7 +102,9 @@ design a hardscape + planting layout, orbit around it from any angle, then
   depth (real water absorbs warm light first). Plus drifting **bubbles** and
   **fish you control** (count, size, color palette, swim pattern —
   school / calm / dart / scatter — and speed) that flock and turn smoothly off
-  the glass; plants sway.
+  the glass; plants sway. Stylized procedural fish by default, or drop a real
+  low-poly **`.glb` fish model** into `public/models/fish/` and pick it in the
+  Fish panel (see [public/ASSETS.md](public/ASSETS.md)).
 - **Gallery** — save scapes into a personal, contest-style **gallery**: press
   **Save** and the tank is flooded for the shot, so every tile is an underwater
   hero image. View your scapes two ways: a dark **Grid** of live 3D tiles, or a
@@ -120,8 +127,9 @@ design a hardscape + planting layout, orbit around it from any angle, then
 - **Camera** — orbit / zoom / pan around the tank.
 - **Color grade** — global **brightness / contrast / saturation / tint** over the
   whole render (post-process, so screenshots keep the look). Reset to neutral.
-- **Quality slider**, a **growth slider** (just-planted → fully grown-in,
-  scaling plant height *and* fullness), **PNG screenshot**, and
+- **Quality slider**, a **growth slider** (just-planted → fully grown-in —
+  driving each plant's height + fullness *per its own growth character*),
+  **PNG screenshot**, and
   **export / import** layouts as portable `.aquascape.json` files. Your work
   also auto-saves to localStorage.
 

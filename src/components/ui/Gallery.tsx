@@ -170,7 +170,7 @@ function GridView({
                   : "border-mist/10 group-hover:border-mist/25"
               }`}
             >
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-sumi">
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-white">
                 <LiveTank
                   layout={scape.layout}
                   thumb={scape.thumb}

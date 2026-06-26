@@ -105,8 +105,8 @@ function ExhibitView({
     const dist = Math.hypot(camera.position.x - ex.pos[0], camera.position.z - ex.pos[2]);
     const near = THREE.MathUtils.clamp(1 - (dist - w * 1.4) / (w * 4), 0, 1); // 1 close → 0 far
     const flick = 0.97 + Math.sin(clock.elapsedTime * 11 + ex.pos[0]) * 0.012 + Math.sin(clock.elapsedTime * 2.3) * 0.018;
-    if (fill.current) fill.current.intensity = lerp(fill.current.intensity, (1.15 + near * 1.3) * flick, 0.05);
-    if (fill2.current) fill2.current.intensity = lerp(fill2.current.intensity, (0.75 + near * 0.8) * flick, 0.05);
+    if (fill.current) fill.current.intensity = lerp(fill.current.intensity, (1.5 + near * 1.4) * flick, 0.05);
+    if (fill2.current) fill2.current.intensity = lerp(fill2.current.intensity, (1.0 + near * 0.9) * flick, 0.05);
     if (emitter.current) emitter.current.emissiveIntensity = lerp(emitter.current.emissiveIntensity, (0.7 + near * 0.9) * flick, 0.05);
   });
 
@@ -153,8 +153,8 @@ function ExhibitView({
         {/* localized "ambient" for this scape — soft fills from the camera side
             that light the plant faces + hardscape (always on; distance-limited so
             they don't wash the dark room). Upper cool + lower warm = even read. */}
-        <pointLight ref={fill} position={[0, h * 0.62, d * 0.55 + 18]} intensity={1.15} distance={Math.max(200, w * 2.6)} decay={1.6} color="#eef4ff" />
-        <pointLight ref={fill2} position={[0, h * 0.16, d * 0.5 + 10]} intensity={0.75} distance={Math.max(160, w * 2)} decay={1.7} color="#f4efe6" />
+        <pointLight ref={fill} position={[0, h * 0.62, d * 0.55 + 18]} intensity={1.5} distance={Math.max(200, w * 2.6)} decay={1.6} color="#eef4ff" />
+        <pointLight ref={fill2} position={[0, h * 0.16, d * 0.5 + 10]} intensity={1.0} distance={Math.max(160, w * 2)} decay={1.7} color="#f4efe6" />
         <ScapeContent layout={scape.layout} underwater fish={scape.layout.fish} worldOffset={[ex.pos[0], CAB_H, ex.pos[2]]} />
       </group>
 

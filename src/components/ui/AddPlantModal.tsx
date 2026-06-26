@@ -61,6 +61,7 @@ export function AddPlantModal({
   const [progress, setProgress] = useState(0);
 
   const [name, setName] = useState("");
+  const [latin, setLatin] = useState("");
   const [category, setCategory] = useState<PlantCategory>("midground");
   const [form, setForm] = useState<PlantForm>("broadleaf");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
@@ -76,6 +77,7 @@ export function AddPlantModal({
     if (editing) {
       setImg(editingTex ?? null);
       setName(editing.name);
+      setLatin(editing.latin ?? "");
       setCategory(editing.category);
       setForm(editing.form);
       setDifficulty(editing.difficulty);
@@ -85,6 +87,7 @@ export function AddPlantModal({
     } else {
       setImg(null);
       setName("");
+      setLatin("");
       setCategory("midground");
       setForm("broadleaf");
       setDifficulty("easy");
@@ -122,6 +125,7 @@ export function AddPlantModal({
     const hi = Math.max(lo, hMax);
     const fields = {
       name: name.trim() || "My Plant",
+      latin: latin.trim() || undefined,
       category,
       form,
       difficulty,
@@ -133,7 +137,7 @@ export function AddPlantModal({
       if (img !== editingTex) setPlantTexture(editId, img);
       setActivePlant(editId);
     } else {
-      const id = addCustomPlant({ ...fields, latin: "Custom" });
+      const id = addCustomPlant(fields);
       setPlantTexture(id, img);
       setActivePlant(id);
     }
@@ -204,6 +208,15 @@ export function AddPlantModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Red Tiger Lotus"
                 className={`${fieldCls} placeholder:text-stone/40`}
+              />
+            </Field>
+
+            <Field label="Scientific name (optional)">
+              <input
+                value={latin}
+                onChange={(e) => setLatin(e.target.value)}
+                placeholder="e.g. Nymphaea lotus"
+                className={`${fieldCls} placeholder:text-stone/40 italic`}
               />
             </Field>
 
