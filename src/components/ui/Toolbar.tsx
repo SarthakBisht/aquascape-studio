@@ -2,13 +2,20 @@
 
 import { useRef } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
+import { useLibraryStore } from "@/store/useLibraryStore";
 import { exportLayoutFile, importLayoutFile } from "@/lib/persistence";
 import { Btn } from "./primitives";
 import type { Quality, GuideFace, GuideRatio } from "@/lib/types";
 
 const QUALITIES: Quality[] = ["low", "medium", "high"];
 
-export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
+export function Toolbar({
+  onScreenshot,
+  onSaveScape,
+}: {
+  onScreenshot: () => void;
+  onSaveScape: () => void;
+}) {
   const mode = useStudioStore((s) => s.mode);
   const setMode = useStudioStore((s) => s.setMode);
   const undo = useStudioStore((s) => s.undo);
@@ -25,9 +32,13 @@ export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
   const setQuality = useStudioStore((s) => s.setQuality);
   const zen = useStudioStore((s) => s.zen);
   const toggleZen = useStudioStore((s) => s.toggleZen);
+  const showPlants = useStudioStore((s) => s.showPlants);
+  const togglePlants = useStudioStore((s) => s.togglePlants);
   const getLayout = useStudioStore((s) => s.getLayout);
   const loadLayout = useStudioStore((s) => s.loadLayout);
   const reset = useStudioStore((s) => s.reset);
+  const setGallery = useLibraryStore((s) => s.setGallery);
+  const scapeCount = useLibraryStore((s) => s.scapes.length);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -87,6 +98,14 @@ export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
 
         <span className="mx-0.5 h-5 w-px bg-mist/10" />
 
+        <Btn
+          active={!showPlants}
+          onClick={togglePlants}
+          title="Hide plants to view the hardscape alone"
+        >
+          {showPlants ? "Hide plants" : "Show plants"}
+        </Btn>
+
         <Btn active={showGuides} onClick={toggleGuides} title="Composition guides">
           Guides
         </Btn>
@@ -144,6 +163,18 @@ export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
             ))}
           </select>
         </label>
+
+        <span className="mx-0.5 h-5 w-px bg-mist/10" />
+
+        <Btn onClick={onSaveScape} title="Save this scape to your gallery">
+          ✓ Save
+        </Btn>
+        <Btn
+          onClick={() => setGallery(true)}
+          title="Browse your saved aquascapes"
+        >
+          ▦ Gallery{scapeCount > 0 ? ` (${scapeCount})` : ""}
+        </Btn>
 
         <span className="mx-0.5 h-5 w-px bg-mist/10" />
 

@@ -36,6 +36,18 @@ export interface SubstrateConfig {
 
 export type HardscapeKind = "rock" | "wood";
 
+/** Base form of a procedural rock. boulder/slab/plate/spire/shard/cobble deform
+ *  an icosahedron; arch/bowl use non-convex primitives (half-torus / lathe). */
+export type RockForm =
+  | "boulder"
+  | "slab"
+  | "plate"
+  | "spire"
+  | "shard"
+  | "cobble"
+  | "arch"
+  | "bowl";
+
 /** A material entry in the hardscape palette (data-driven, easy to extend). */
 export interface HardscapeMaterial {
   id: string;
@@ -58,6 +70,8 @@ export interface HardscapeMaterial {
   /** Default PBR surface id (HARDSCAPE_SURFACES) so library pieces ship textured,
    *  not flat. A per-piece `textureId` override still wins. */
   textureId?: string;
+  /** Default base form for the procedural mesh (undefined ⇒ boulder). */
+  form?: RockForm;
   /**
    * Optional path to a real .glb model (e.g. "/models/seiryu-01.glb"). When set
    * it replaces the procedural rock — the upgrade path to scanned hardscape.
@@ -132,11 +146,19 @@ export interface HardscapeItem {
   roughness?: number;
 
   // ---- per-piece rock sculpt overrides (passed to makeRockGeometry) ----
+  /** Base form (undefined ⇒ material default ⇒ boulder). */
+  form?: RockForm;
   shape?: Vec3;
   jaggedness?: number;
   detail?: number;
   strata?: boolean;
   veinColor?: string;
+  /** Radius scaled by height: + = wide base/anvil, − = wide top/spire. */
+  taper?: number;
+  /** Planar cleave amount 0..1 — flattens the top & a side into flat faces. */
+  flat?: number;
+  /** Small lean so the piece isn't axis-symmetric (radians-ish, 0..1). */
+  tilt?: number;
 
   /** Driftwood generator params (when source === "drift"). */
   drift?: DriftParams;
@@ -338,4 +360,6 @@ export interface Layout {
   mode?: ViewMode;
   /** Per-species billboard photos referenced by the plants. */
   customPlantTextures?: Record<string, string>;
+  /** User-created plant species referenced by the plants. */
+  customPlants?: PlantSpecies[];
 }

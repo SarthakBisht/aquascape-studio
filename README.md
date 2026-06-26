@@ -26,16 +26,22 @@ design a hardscape + planting layout, orbit around it from any angle, then
   and delete. Data-driven, so new materials are a one-line addition.
 - **Customize each piece (3D)** — select any rock/wood and open the **Customize**
   panel: tint its **color**, apply a realistic **PBR surface** (Seiryu, Granite,
-  Slate, Lava, Sandstone, Driftwood Bark, Weathered Wood — seamless procedural
-  albedo + normal + roughness, projected **triplanar** so it tiles cleanly on any
-  shape), set **roughness**, and **sculpt the shape** with sliders (width / height
-  / depth stretch, jaggedness, detail, layered strata, vein color).
+  Slate, Lava, Sandstone, Dragon Stone, Petrified Wood, Driftwood Bark, Weathered
+  Wood — seamless procedural albedo + normal + roughness, projected **triplanar**
+  so it tiles cleanly on any shape), set **roughness**, pick a **form**
+  (Boulder · Cobble · Slab · Plate · Spire · Shard · **Arch** · **Bowl** — the
+  arch/bowl are genuinely concave, not just stretched spheres), then fine-tune the
+  shape with sliders (width / height / depth, **taper**, **flatten** into cleaved
+  faces, **tilt**, jaggedness, detail, layered strata, vein color). **♻ New shape**
+  rolls a fresh random variant of the same form. Spawn an Arch / Bowl / Slab /
+  Spire straight from the palette's **Rock forms** row.
 - **Make your own hardscape** — four ways, all client-side:
   - **Driftwood generator** — one click spawns a unique **branchy** piece
     (recursive tapered limbs); tune branches / length / gnarl / taper / splits /
     thickness, or Regenerate for a new one.
   - **Draw → 3D** — sketch a silhouette on a 2D canvas (brush / erase / mirror);
-    it's **inflated into a rounded 3D piece** you can orbit, texture, and place.
+    it's **inflated and roughened into a real stone** (surface relief, not a smooth
+    pillow) shown in a **live rotating 3D preview** before you place it.
   - **Photo → 3D** — drop a driftwood/rock photo; an **in-browser AI** removes the
     background and estimates **monocular depth** (Depth-Anything v2) to build a real
     3D mesh of the piece. First use downloads a small model.
@@ -62,6 +68,11 @@ design a hardscape + planting layout, orbit around it from any angle, then
   click **＋ img**); an **in-browser AI** removes the background and uses the
   cutout as that plant's look (saved per species). Plants without an image are
   highlighted.
+- **Add your own plant** — **＋ Add custom plant** opens a form: drop a photo (the
+  background is removed), set name, category, leaf form, difficulty, default
+  height range, and color → it's added to the browser as a real species, armed
+  for painting. 🗑 removes it. Custom plants save, export, and show in the gallery
+  with the scape.
 - **Draw tool** — a freehand pen: pick a plant or a substrate material (sand /
   gravel / soil) and **drag** on the tank to paint. Plants seat on the surface
   slope; material draws as level patches. Or **Sculpt slope** (Raise / Carve) to
@@ -79,6 +90,17 @@ design a hardscape + planting layout, orbit around it from any angle, then
   **fish you control** (count, size, color palette, swim pattern —
   school / calm / dart / scatter — and speed) that flock and turn smoothly off
   the glass; plants sway.
+- **Gallery** — save scapes into a personal, contest-style **gallery**: press
+  **Save** and the tank is flooded for the shot, so every tile is an underwater
+  hero image. View your scapes two ways: a dark **Grid** of live 3D tiles, or a
+  **Showroom** — a **navigable 3D gallery room** where every saved tank is placed
+  and running on a lit cabinet along the wall, in a cozy, warm-lit lounge — just
+  like walking into a real aquascaping showroom. Each tank is **flooded and lit by
+  its own light rig, with its own fish swimming** (the count / size / palette /
+  pattern you set). Free-look with the mouse (drag to look, right-drag to move
+  through the room, scroll to zoom), hover a tank to read its name, click to open
+  it (its full look — lights, fish, color grade, underwater settings — comes
+  back). Or start a fresh **New scape**. Stored locally in your browser.
 - **Camera** — orbit / zoom / pan around the tank.
 - **Color grade** — global **brightness / contrast / saturation / tint** over the
   whole render (post-process, so screenshots keep the look). Reset to neutral.
@@ -125,7 +147,10 @@ pnpm build      # production build (also type-checks)
 3. In the **Plants** panel, filter and pick a species, then click on the
    substrate to fill an area with it.
 4. Flip to **Underwater** in the toolbar to flood the tank and watch the fish.
-5. **Export** to save/share your scape, or **📷** for a screenshot.
+5. Press **Save** to add the scape to your **Gallery** (it's auto-flooded for the
+   tile). Open the **Gallery** to revisit any scape, or **New scape** for a blank
+   tank.
+6. **Export** to save/share your scape as a file, or **📷** for a screenshot.
 
 ## Project layout
 
@@ -136,11 +161,14 @@ src/
     Studio.tsx         Canvas host + UI overlay (client, mounted-gated)
     scene/             TankScene, GlassTank, Substrate, Lighting, LightFixtures,
                        Hardscape, TriplanarMaterial, PlacementGhost, Plants,
-                       Water, Fish, CompositionGuides
+                       Water, Fish, CompositionGuides, LiveTank (gallery tile)
+                       + Showroom3D (navigable 3D gallery room)
     ui/                Toolbar, TankPanel, HardscapePalette, HardscapeEditPanel,
                        DrawShapeModal, PhotoTo3DModal, LightPanel, DrawPanel,
-                       BackgroundPanel, PlantBrowser, SelectionBar, primitives
-  store/useStudioStore.ts   single zustand store (persisted)
+                       BackgroundPanel, PlantBrowser, SelectionBar, Gallery,
+                       primitives
+  store/useStudioStore.ts   editor state — single zustand store (persisted)
+  store/useLibraryStore.ts  saved-scape gallery (separate persisted store)
   data/                tankPresets, hardscapeMaterials, hardscapeTextures,
                        plants, stylePresets
   lib/                 types, units, proceduralRock, driftwood, inflate,

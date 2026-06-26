@@ -72,6 +72,35 @@ export function HardscapePalette() {
           🖼 Photo → 3D
         </Btn>
       </div>
+
+      <div className="mb-1 mt-2 text-[10px] uppercase tracking-wide text-stone">
+        Rock forms
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {(
+          [
+            ["slab", "🧱 Slab"],
+            ["spire", "🗼 Spire"],
+            ["arch", "🌉 Arch"],
+            ["bowl", "🥣 Bowl"],
+          ] as const
+        ).map(([form, label]) => (
+          <Btn
+            key={form}
+            onClick={() =>
+              addGenerated({
+                kind: "rock",
+                source: "procedural",
+                form,
+                textureId: "granite",
+              })
+            }
+          >
+            {label}
+          </Btn>
+        ))}
+      </div>
+
       <DrawShapeModal open={drawOpen} onClose={() => setDrawOpen(false)} />
       <PhotoTo3DModal open={photoOpen} onClose={() => setPhotoOpen(false)} />
       <p className="mt-1.5 text-[10px] leading-snug text-stone/70">

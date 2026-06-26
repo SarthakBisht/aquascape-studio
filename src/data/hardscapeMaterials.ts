@@ -82,6 +82,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     strata: true,
     veinColor: "#8a7b67",
     textureId: "slate",
+    form: "slab",
   },
   {
     id: "petrified",
@@ -96,6 +97,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     strata: true,
     veinColor: "#9a7b5a",
     textureId: "petrified-tex",
+    form: "slab",
   },
   {
     id: "spiderwood",

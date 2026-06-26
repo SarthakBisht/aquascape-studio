@@ -4,7 +4,13 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useStudioStore } from "@/store/useStudioStore";
-import type { FishPalette, FishPattern, SubstrateConfig, TankDimensions } from "@/lib/types";
+import type {
+  FishConfig,
+  FishPalette,
+  FishPattern,
+  SubstrateConfig,
+  TankDimensions,
+} from "@/lib/types";
 
 // Fish built from primitives but proportioned to read as fish (tapered body,
 // caudal + dorsal fins, eyes) with a tail swish. Look & behaviour are
@@ -86,11 +92,15 @@ const PATTERN: Record<
 export function Fish({
   dims,
   substrate,
+  fish,
 }: {
   dims: TankDimensions;
   substrate: SubstrateConfig;
+  /** Per-tank fish config (gallery). Omitted ⇒ the editor's live store config. */
+  fish?: FishConfig;
 }) {
-  const cfg = useStudioStore((s) => s.fish);
+  const storeFish = useStudioStore((s) => s.fish);
+  const cfg = fish ?? storeFish;
   const count = Math.max(0, Math.min(60, Math.round(cfg.count)));
   const groupRefs = useRef<(THREE.Group | null)[]>([]);
   const tailRefs = useRef<(THREE.Group | null)[]>([]);

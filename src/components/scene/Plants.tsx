@@ -68,7 +68,10 @@ function Patch({ placement }: { placement: PlantPlacement }) {
   const tankHeight = useStudioStore((s) => s.tank.height);
   const tankWidth = useStudioStore((s) => s.tank.width);
   const tankDepth = useStudioStore((s) => s.tank.depth);
-  const species = getSpecies(placement.speciesId);
+  const customPlants = useStudioStore((s) => s.customPlants);
+  const species =
+    getSpecies(placement.speciesId) ??
+    customPlants.find((p) => p.id === placement.speciesId);
 
   const customTex = useStudioStore((s) =>
     species ? s.customPlantTextures[species.id] : undefined,

@@ -53,15 +53,16 @@ function makeTexture(bg: BackgroundConfig): THREE.CanvasTexture {
   return tex;
 }
 
-export function Backdrop({
+/** Just the physical backdrop plane behind the back glass (no scene clear color).
+ *  Store-free, so the gallery previews/showroom can show the *same* backlit /
+ *  gradient / solid panel a scape was designed with. */
+export function BackdropPanel({
   background,
   dims,
 }: {
   background: BackgroundConfig;
   dims: TankDimensions;
 }) {
-  const ambience = useStudioStore((s) => s.ambience);
-
   const texture = useMemo(
     () =>
       background.style === "solid" || background.style === "none"
@@ -74,26 +75,36 @@ export function Backdrop({
   const { width: w, depth: d, height: h } = dims;
   // Edge-to-edge on the back panel: match the back glass (w × h) with a hair of
   // bleed so no dark sliver shows at the seams. Sits just behind the back glass.
-  const planeW = w + 1;
-  const planeH = h + 1;
-  const dimKey = `${w}-${d}-${h}`;
+  if (background.style === "none") return null;
+  return (
+    <mesh
+      key={`${w}-${d}-${h}`}
+      position={[0, h / 2, -(d / 2 + 0.3)]}
+      renderOrder={-1}
+    >
+      <planeGeometry args={[w + 1, h + 1]} />
+      {background.style === "solid" || !texture ? (
+        <meshBasicMaterial color={background.colorTop} side={THREE.DoubleSide} />
+      ) : (
+        <meshBasicMaterial map={texture} side={THREE.DoubleSide} />
+      )}
+    </mesh>
+  );
+}
 
+export function Backdrop({
+  background,
+  dims,
+}: {
+  background: BackgroundConfig;
+  dims: TankDimensions;
+}) {
+  const ambience = useStudioStore((s) => s.ambience);
   return (
     <>
       {/* Scene/room ambience — sky and surroundings outside the tank. */}
       <color attach="background" args={[ambience]} />
-
-      {/* Physical tank backdrop plane — only when a style is chosen. */}
-      {background.style !== "none" && (
-        <mesh key={dimKey} position={[0, h / 2, -(d / 2 + 0.3)]} renderOrder={-1}>
-          <planeGeometry args={[planeW, planeH]} />
-          {background.style === "solid" || !texture ? (
-            <meshBasicMaterial color={background.colorTop} side={THREE.DoubleSide} />
-          ) : (
-            <meshBasicMaterial map={texture} side={THREE.DoubleSide} />
-          )}
-        </mesh>
-      )}
+      <BackdropPanel background={background} dims={dims} />
     </>
   );
 }

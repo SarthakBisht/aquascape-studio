@@ -3,9 +3,10 @@
 import { useStudioStore } from "@/store/useStudioStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { HARDSCAPE_SURFACES } from "@/data/hardscapeTextures";
+import { ROCK_FORM_IDS, ROCK_FORMS, getRockForm } from "@/data/rockForms";
 import { DEFAULT_DRIFT } from "@/lib/driftwood";
 import { Panel, Btn } from "./primitives";
-import type { HardscapeItem, Vec3 } from "@/lib/types";
+import type { HardscapeItem, RockForm, Vec3 } from "@/lib/types";
 
 // Range input that collapses a whole drag into one undo step via the store's
 // transaction bracketing (updateHardscape's pushHistory is suppressed while a
@@ -65,14 +66,19 @@ export function HardscapeEditPanel() {
   const isWood = item.kind === "wood";
   const source = item.source ?? "procedural";
 
-  // Effective values (override → material → kind default).
+  // Effective values (override → material → form default → kind default).
+  const form: RockForm = item.form ?? mat?.form ?? "boulder";
+  const def = getRockForm(form);
   const color = item.color ?? mat?.color ?? (isWood ? "#6b4f34" : "#7a7a7a");
   const roughness = item.roughness ?? mat?.roughness ?? 0.9;
-  const shape: Vec3 = item.shape ?? mat?.shape ?? [1, 1, 1];
+  const shape: Vec3 = item.shape ?? mat?.shape ?? def.shape;
   const jaggedness =
-    item.jaggedness ?? mat?.jaggedness ?? (isWood ? 0.22 : 0.45);
-  const detail = item.detail ?? (isWood ? 1 : 2);
-  const strata = item.strata ?? mat?.strata ?? false;
+    item.jaggedness ?? mat?.jaggedness ?? (isWood ? 0.22 : def.jaggedness);
+  const detail = item.detail ?? (isWood ? 1 : def.detail);
+  const strata = item.strata ?? mat?.strata ?? def.strata;
+  const taper = item.taper ?? def.taper;
+  const flat = item.flat ?? def.flat;
+  const tilt = item.tilt ?? 0;
   const veinColor = item.veinColor ?? mat?.veinColor;
   const drift = item.drift ?? DEFAULT_DRIFT;
 
@@ -84,6 +90,22 @@ export function HardscapeEditPanel() {
   };
   const setDrift = (patch: Partial<typeof drift>) =>
     set({ drift: { ...drift, ...patch } });
+
+  // Apply a form preset: set the form + its starting params as overrides, so the
+  // preset is a launch point the sliders then fine-tune.
+  const applyForm = (f: RockForm) => {
+    const d = ROCK_FORMS[f];
+    set({
+      form: f,
+      shape: d.shape,
+      jaggedness: d.jaggedness,
+      detail: d.detail,
+      strata: d.strata,
+      taper: d.taper,
+      flat: d.flat,
+    });
+  };
+  const reroll = () => set({ seed: Math.floor(Math.random() * 1e9) });
 
   const surfaces = HARDSCAPE_SURFACES.filter((s) => s.kind === item.kind);
 
@@ -131,6 +153,30 @@ export function HardscapeEditPanel() {
         ))}
       </div>
 
+      {source === "procedural" && (
+        <div className="mb-3">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wide text-stone">
+              Form
+            </span>
+            <button
+              onClick={reroll}
+              title="Roll a new random shape (same form)"
+              className="text-[10px] text-moss hover:text-moss-bright"
+            >
+              ♻ New shape
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {ROCK_FORM_IDS.map((f) => (
+              <Btn key={f} active={form === f} onClick={() => applyForm(f)}>
+                {ROCK_FORMS[f].label}
+              </Btn>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-1.5 border-t border-white/10 pt-2">
         <EditSlider
           label="Roughness"
@@ -143,10 +189,13 @@ export function HardscapeEditPanel() {
 
         {source === "procedural" && (
           <>
-            <EditSlider label="Width" value={shape[0]} min={0.4} max={2} step={0.05} onChange={(v) => setShape(0, v)} />
-            <EditSlider label="Height" value={shape[1]} min={0.4} max={2} step={0.05} onChange={(v) => setShape(1, v)} />
-            <EditSlider label="Depth" value={shape[2]} min={0.4} max={2} step={0.05} onChange={(v) => setShape(2, v)} />
-            <EditSlider label="Jagged" value={jaggedness} min={0.05} max={0.8} step={0.05} onChange={(v) => set({ jaggedness: v })} />
+            <EditSlider label="Width" value={shape[0]} min={0.2} max={3} step={0.05} onChange={(v) => setShape(0, v)} />
+            <EditSlider label="Height" value={shape[1]} min={0.2} max={3} step={0.05} onChange={(v) => setShape(1, v)} />
+            <EditSlider label="Depth" value={shape[2]} min={0.2} max={3} step={0.05} onChange={(v) => setShape(2, v)} />
+            <EditSlider label="Taper" value={taper} min={-1} max={1} step={0.05} onChange={(v) => set({ taper: v })} />
+            <EditSlider label="Flatten" value={flat} min={0} max={1} step={0.05} onChange={(v) => set({ flat: v })} />
+            <EditSlider label="Tilt" value={tilt} min={0} max={1} step={0.05} onChange={(v) => set({ tilt: v })} />
+            <EditSlider label="Jagged" value={jaggedness} min={0.05} max={0.9} step={0.05} onChange={(v) => set({ jaggedness: v })} />
             <EditSlider label="Detail" value={detail} min={0} max={3} step={1} onChange={(v) => set({ detail: v })} />
             <div className="flex items-center gap-2 pt-1">
               <Btn active={strata} onClick={() => set({ strata: !strata })}>

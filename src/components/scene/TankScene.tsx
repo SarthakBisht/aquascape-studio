@@ -25,6 +25,7 @@ export function TankScene() {
   const background = useStudioStore((s) => s.background);
   const mode = useStudioStore((s) => s.mode);
   const showGuides = useStudioStore((s) => s.showGuides);
+  const showPlants = useStudioStore((s) => s.showPlants);
   const guides = useStudioStore((s) => s.guides);
   const tool = useStudioStore((s) => s.tool);
 
@@ -47,7 +48,7 @@ export function TankScene() {
       <GroundCover />
       <Hardscape />
       <PlacementGhost />
-      <Plants />
+      {showPlants && <Plants />}
       {underwater && <Caustics dims={tank} substrate={substrate} />}
       {underwater && <Water dims={tank} />}
       {underwater && <Bubbles dims={tank} substrate={substrate} />}

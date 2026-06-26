@@ -14,6 +14,7 @@ import type {
   Layout,
   LightFixture,
   PlantPlacement,
+  PlantSpecies,
   Quality,
   SubstrateConfig,
   SubstrateType,
@@ -57,6 +58,14 @@ const DEFAULT_GRADE: ColorGrade = {
   contrast: 0,
   saturation: 0,
   hue: 0,
+};
+
+const DEFAULT_FISH: FishConfig = {
+  count: 14,
+  size: 1,
+  speed: 1,
+  pattern: "school",
+  palette: "tropical",
 };
 
 const DEFAULT_LIGHTS: LightFixture[] = [
@@ -111,6 +120,8 @@ interface StudioState {
   ambience: string;
   /** Per-species custom billboard image (speciesId → PNG data URL). */
   customPlantTextures: Record<string, string>;
+  /** User-created plant species (each pairs with a customPlantTextures image). */
+  customPlants: PlantSpecies[];
   /** Generated hardscape height fields (meshId → height PNG), rebuilt to geometry on load. */
   customMeshes: Record<string, CustomMesh>;
 
@@ -125,6 +136,8 @@ interface StudioState {
   grade: ColorGrade;
   /** Zen mode dissolves the interface so only the scape remains. Transient. */
   zen: boolean;
+  /** Hide plants to view the hardscape alone. Transient. */
+  showPlants: boolean;
 
   /** Fish look & behaviour (underwater mode). */
   fish: FishConfig;
@@ -164,7 +177,7 @@ interface StudioState {
       Partial<
         Pick<
           HardscapeItem,
-          "materialId" | "drift" | "meshId" | "color" | "textureId" | "scale"
+          "materialId" | "drift" | "meshId" | "color" | "textureId" | "scale" | "form"
         >
       >,
   ) => string;
@@ -190,6 +203,10 @@ interface StudioState {
   removePlant: (id: string) => void;
   setPlantTexture: (speciesId: string, dataUrl: string) => void;
   clearPlantTexture: (speciesId: string) => void;
+  /** Create a user plant species (defaults filled). Returns its id. */
+  addCustomPlant: (partial?: Partial<PlantSpecies>) => string;
+  /** Delete a custom plant: its species, image, and any placed patches of it. */
+  removeCustomPlant: (id: string) => void;
   addGroundPatch: (type: SubstrateType, position: Vec3) => void;
 
   setMode: (mode: ViewMode) => void;
@@ -200,6 +217,7 @@ interface StudioState {
   setGrade: (patch: Partial<ColorGrade>) => void;
   resetGrade: () => void;
   toggleZen: () => void;
+  togglePlants: () => void;
   setFish: (patch: Partial<FishConfig>) => void;
 
   addLight: (type: FixtureType) => void;
@@ -229,6 +247,7 @@ export const useStudioStore = create<StudioState>()(
       background: DEFAULT_BACKGROUND,
       ambience: DEFAULT_AMBIENCE,
       customPlantTextures: {},
+      customPlants: [],
       customMeshes: {},
 
       mode: "design",
@@ -238,8 +257,9 @@ export const useStudioStore = create<StudioState>()(
       growth: 0.25,
       grade: DEFAULT_GRADE,
       zen: false,
+      showPlants: true,
 
-      fish: { count: 14, size: 1, speed: 1, pattern: "school", palette: "tropical" },
+      fish: DEFAULT_FISH,
 
       lights: DEFAULT_LIGHTS,
 
@@ -321,6 +341,7 @@ export const useStudioStore = create<StudioState>()(
           meshId: partial.meshId,
           color: partial.color,
           textureId: partial.textureId,
+          form: partial.form,
         };
         set((s) => ({
           hardscape: [...s.hardscape, item],
@@ -462,6 +483,39 @@ export const useStudioStore = create<StudioState>()(
           delete next[speciesId];
           return { customPlantTextures: next };
         }),
+      addCustomPlant: (partial) => {
+        const id = genId();
+        const species: PlantSpecies = {
+          id,
+          name: "My Plant",
+          latin: "Custom",
+          category: "midground",
+          form: "broadleaf",
+          difficulty: "easy",
+          growth: "medium",
+          light: "medium",
+          co2: false,
+          heightCm: [6, 18],
+          color: "#4f9a3f",
+          ...partial,
+          // id is always store-generated, never overridden by partial
+        };
+        species.id = id;
+        set((s) => ({ customPlants: [...s.customPlants, species] }));
+        return id;
+      },
+      removeCustomPlant: (id) => {
+        get().pushHistory();
+        set((s) => {
+          const tex = { ...s.customPlantTextures };
+          delete tex[id];
+          return {
+            customPlants: s.customPlants.filter((p) => p.id !== id),
+            customPlantTextures: tex,
+            plants: s.plants.filter((p) => p.speciesId !== id),
+          };
+        });
+      },
       addGroundPatch: (type, position) => {
         get().pushHistory();
         const patch: GroundPatch = {
@@ -481,6 +535,7 @@ export const useStudioStore = create<StudioState>()(
       setGrade: (patch) => set((s) => ({ grade: { ...s.grade, ...patch } })),
       resetGrade: () => set({ grade: DEFAULT_GRADE }),
       toggleZen: () => set((s) => ({ zen: !s.zen, selectedId: null })),
+      togglePlants: () => set((s) => ({ showPlants: !s.showPlants })),
       setFish: (patch) => set((s) => ({ fish: { ...s.fish, ...patch } })),
 
       addLight: (type) =>
@@ -527,6 +582,7 @@ export const useStudioStore = create<StudioState>()(
           guides: layout.guides ?? { face: "front", ratio: "both" },
           mode: layout.mode ?? "design",
           customPlantTextures: layout.customPlantTextures ?? {},
+          customPlants: layout.customPlants ?? [],
           selectedId: null,
         });
       },
@@ -545,6 +601,7 @@ export const useStudioStore = create<StudioState>()(
             usedPlant.has(id),
           ),
         );
+        const customPlants = s.customPlants.filter((p) => usedPlant.has(p.id));
         return {
           version: 2,
           tank: s.tank,
@@ -563,6 +620,7 @@ export const useStudioStore = create<StudioState>()(
           guides: s.guides,
           mode: s.mode,
           customPlantTextures,
+          customPlants,
         };
       },
       reset: () => {
@@ -575,6 +633,16 @@ export const useStudioStore = create<StudioState>()(
           plants: [],
           ground: [],
           background: DEFAULT_BACKGROUND,
+          // a blank scape resets the whole look too, not just the contents
+          ambience: DEFAULT_AMBIENCE,
+          lights: DEFAULT_LIGHTS,
+          fish: DEFAULT_FISH,
+          grade: DEFAULT_GRADE,
+          growth: 0.25,
+          mode: "design",
+          customMeshes: {},
+          customPlantTextures: {},
+          customPlants: [],
           selectedId: null,
         });
       },
@@ -645,6 +713,7 @@ export const useStudioStore = create<StudioState>()(
         background: s.background,
         ambience: s.ambience,
         customPlantTextures: s.customPlantTextures,
+        customPlants: s.customPlants,
         customMeshes: s.customMeshes,
         mode: s.mode,
         quality: s.quality,

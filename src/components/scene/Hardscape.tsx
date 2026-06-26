@@ -6,6 +6,7 @@ import { Clone, Outlines, TransformControls, useGLTF } from "@react-three/drei";
 import { useStudioStore } from "@/store/useStudioStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { getSurface } from "@/data/hardscapeTextures";
+import { getRockForm } from "@/data/rockForms";
 import { makeRockGeometry } from "@/lib/proceduralRock";
 import { makeDriftwoodGeometry, DEFAULT_DRIFT } from "@/lib/driftwood";
 import { meshFromHeightfield, loadHeightField } from "@/lib/heightfieldMesh";
@@ -64,23 +65,33 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
       return makeDriftwoodGeometry(item.seed, item.drift ?? DEFAULT_DRIFT);
     }
     const isWood = item.kind === "wood";
+    const def = getRockForm(item.form ?? material?.form);
     return makeRockGeometry(item.seed, {
-      jaggedness: item.jaggedness ?? material?.jaggedness ?? (isWood ? 0.22 : 0.45),
-      detail: item.detail ?? (isWood ? 1 : 3),
-      shape: item.shape ?? material?.shape ?? [1, 1, 1],
+      primitive: def.primitive,
+      jaggedness: item.jaggedness ?? material?.jaggedness ?? (isWood ? 0.22 : def.jaggedness),
+      detail: item.detail ?? (isWood ? 1 : def.detail),
+      shape: item.shape ?? material?.shape ?? def.shape,
+      taper: item.taper ?? def.taper,
+      flat: item.flat ?? def.flat,
+      tilt: item.tilt ?? 0,
       veinColor: item.veinColor ?? material?.veinColor,
-      strata: item.strata ?? material?.strata,
+      strata: item.strata ?? material?.strata ?? def.strata,
     });
   }, [
     item.source,
     item.seed,
     item.kind,
     item.drift,
+    item.form,
     item.jaggedness,
     item.detail,
     item.shape,
+    item.taper,
+    item.flat,
+    item.tilt,
     item.veinColor,
     item.strata,
+    material?.form,
     material?.shape,
     material?.jaggedness,
     material?.veinColor,

@@ -46,7 +46,8 @@ wow factor, not production hardening.
   plant heights) are in cm; the only conversion point is `src/lib/units.ts`.
 - Function components + hooks only. Keep R3F components small and single-purpose.
 - **Data-driven libraries:** adding a rock/wood type is a new entry in
-  `src/data/hardscapeMaterials.ts`; a **PBR surface** in
+  `src/data/hardscapeMaterials.ts`; a **rock form** (base primitive + sculpt
+  defaults) in `src/data/rockForms.ts`; a **PBR surface** in
   `src/data/hardscapeTextures.ts`; a plant in `src/data/plants.ts`; a tank size
   in `src/data/tankPresets.ts`. The palette, pickers, and renderers all read from
   these lists — don't hardcode items in components.
@@ -76,10 +77,13 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        ├─ ColorGrade (EffectComposer, mounted only when grade ≠ neutral)
        └─ OrbitControls(makeDefault); paint raycasts Substrate/Hardscape,
           deselect via Canvas onPointerMissed
-  └─ UI overlay: Toolbar · TankPanel · HardscapePalette (+ DrawShapeModal,
+  └─ UI overlay: Toolbar (Save · Gallery · Capture · Export/Import · Reset) ·
+     TankPanel · HardscapePalette (+ DrawShapeModal,
      PhotoTo3DModal) · HardscapeEditPanel · DrawPanel · BackgroundPanel ·
      LightPanel · GradePanel ·
      (PlantBrowser in design / FishPanel underwater) · SelectionBar
+  └─ Gallery (full-screen overlay, mounted when libraryStore.galleryOpen):
+     Grid | Showroom views of saved scapes; open one → loadLayout, New → reset
 ```
 - **`useStudioStore`** is the single source of truth: tank dims, substrate,
   style, `hardscape[]`, `plants[]`, `lights[]` (the overhead rig), plus view
@@ -92,27 +96,86 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   carve), and the placement pair
   `placingMaterialId`/`placingSeed`. Also persisted: `customMeshes`
   (meshId → grayscale height PNG for generated pieces, mirrors
-  `customPlantTextures`). A persist `version`/`migrate` (now v5) maps the legacy
+  `customPlantTextures`) and `customPlants` (user-created `PlantSpecies[]`, each
+  paired with a `customPlantTextures` image — the "add your own plant" library). A persist `version`/`migrate` (now v5) maps the legacy
   `grownIn` boolean → `growth`, seeds a default light rig, and defaults
   `customMeshes`. `getLayout()` prunes unreferenced `customMeshes` before export;
   `loadLayout()` restores them.
+- **Gallery / saved scapes** (`useLibraryStore`, separate persist key
+  `aquascape-studio:library`): a local library of `SavedScape` {id, name, thumb
+  (downscaled JPEG data URL), layout, dates} kept out of the editor's
+  snapshot/undo. `Toolbar` **Save** → `captureThumbnail(canvas)` +
+  `getLayout()` → `createScape`/`updateScape` (updates the open `currentId`, else
+  prompts a name); **Save floods the tank first** (`setMode("underwater")`, ~500ms
+  settle) so tiles read like contest-gallery photos. **Gallery** opens a
+  full-screen `Gallery` overlay (`galleryOpen`, transient) with two views (header
+  toggle): **Grid** (dark contest-style tile grid) and **Showroom** (a single
+  **navigable 3D room** — `Showroom3D`, one `<Canvas>`: the saved scapes placed
+  as live tanks on dark cabinets along the back wall of a **cozy, warm-lit,
+  reflective-floored** gallery (warm ambient + lounge accents + fog vs. the dark
+  room, like the reference). Modeled on real ADA / aquascaping showrooms: rimless
+  tanks on matte-charcoal cabinets (recessed door panels), **cyan glass-edge
+  glow**, **suspended pendant fixtures on cables**, a **bright white backlit wall
+  band** behind the row (tanks silhouette against it; spills cool light forward),
+  **polished concrete** floor reflecting **long ceiling light strips** as streaks,
+  saved scapes also hung as **framed prints** on the upper wall, plus a center
+  **lounge** (benches + glass table). Each tank is **flooded + lit by its own saved
+  light rig**, behind the **same backdrop it was designed with** (`BackdropPanel`,
+  store-free split out of `Backdrop`), with a light pale-cyan water veil and **its
+  own fish swimming** (per-scape `FishConfig`, `ambient` fill off so N rigs don't
+  wash the room). Free-look with `OrbitControls`
+  (drag = look, right-drag = move, scroll = zoom), hover shows the tank name,
+  click opens it).
+  Both: click → `loadLayout` + `setCurrent`, **New scape** → `reset()`. Grid
+  tiles are **live 3D** (`LiveTank` in `src/components/scene/LiveTank.tsx`): an
+  IntersectionObserver mounts a small `<Canvas>` per on-screen tile that renders
+  that scape from its `Layout` (slow turntable, underwater tint if saved
+  underwater) and unmounts off-screen — bounding WebGL contexts; the captured
+  thumbnail is the off-screen fallback (canvas is pointer-transparent so the tile
+  still handles click-to-open). The shared, **store-free** scene graph is
+  `ScapeContent` (exported from `LiveTank.tsx`) — re-renders a scape from layout
+  props using the same pure helpers as the editor (`makeRockGeometry`,
+  `makeDriftwoodGeometry`, `meshFromHeightfield`, `TriplanarMaterial`,
+  `usePlantTexture`, `terrain.sampleField`), so a preview can never mutate the
+  working scape; both the grid tiles and the `Showroom3D` room mount it.
+  ponytail ceiling: `Showroom3D` renders **all** scapes at once in one canvas
+  (no culling beyond three's frustum) — fine for dozens, add LOD/instancing if a
+  room holds hundreds. **Layout is now
+  v2**: `getLayout()` captures the full look (lights/fish/grade/ambience/growth/
+  guides/mode + referenced `customPlantTextures`) so a reopened scape — incl. its
+  underwater settings — restores exactly; `loadLayout()` defaults each field so v1
+  files still load, and `importLayoutFile` accepts v1|v2. `reset()` now clears the
+  whole look (blank slate), not just contents. ponytail ceiling: thumbnails live
+  in localStorage (~5 MB) — fine for dozens of scapes, move to IndexedDB for
+  hundreds.
 - **Hardscape geometry by `source`** — every `HardscapeItem` carries optional
   per-piece overrides (back-compat: undefined = legacy procedural). Edits all go
   through the existing `updateHardscape(id, patch)`; generated pieces are created
   with `addGeneratedHardscape(partial)`:
-  - `procedural` (`src/lib/proceduralRock.ts`): seed → icosahedron (detail 3 for
-    rock) deformed by layered 3D value noise — smooth `fbm3` bulges + a *ridged*
-    `ridged3` term for the sharp angular crests + a fine octave; per-seed
-    frequency/strength/anisotropy jitter so no two rocks are siblings. Sculpt
-    overrides (`shape`/`jaggedness`/`detail`/`strata`/`veinColor`) win over the
-    material default. Only seed+params persist, so layouts stay tiny.
+  - `procedural` (`src/lib/proceduralRock.ts`): a **base primitive chosen by
+    `form`** displaced by layered 3D value noise — smooth `fbm3` bulges + a
+    *ridged* `ridged3` term for sharp angular crests + a fine octave; per-seed
+    frequency/strength/anisotropy jitter so no two rocks are siblings. **Forms**
+    (`src/data/rockForms.ts`, `ROCK_FORMS`): boulder/cobble/slab/plate/spire/shard
+    use an `IcosahedronGeometry` (displaced **radially** — duplicated polyhedron
+    verts share a direction → gap-free); **arch** uses a half-`TorusGeometry` and
+    **bowl** a `LatheGeometry` U-profile (displaced along the shared **normal**) so
+    they're genuinely **non-convex**, not lumpy spheres. Post-transforms: `shape`
+    axis scale → `taper` (radius by height) → `flat` (planar cleave → flat faces)
+    → `tilt`. Per-piece overrides (`form`/`shape`/`jaggedness`/`detail`/`strata`/
+    `veinColor`/`taper`/`flat`/`tilt`) win over the form default, then the
+    material. Only seed+params persist, so layouts stay tiny. The lib is data-free
+    (the render layer resolves `form`→`primitive`) so its `node`-runnable
+    self-check works.
   - `drift` (`src/lib/driftwood.ts`): `makeDriftwoodGeometry(seed, DriftParams)` —
     recursive tapered tubes (manually merged, no deps), bark vertex colors.
   - `mesh` (`src/lib/heightfieldMesh.ts`): rebuilt async from
     `customMeshes[meshId]` — a grayscale height PNG → `meshFromHeightfield`
     (front +H / back −H with a z=0 rim seam → a closed, orbitable volume). Fed by
     **Draw → 3D** (`src/lib/inflate.ts`: distance-transform "puff" of a sketched
-    silhouette) or **Photo → 3D** (`src/lib/depthFromImage.ts`: Depth-Anything
+    silhouette, then `roughenHeight` stamps 2D fbm + ridged relief so it reads as
+    stone not a pillow; `DrawShapeModal` shows a live R3F preview + mirror is off
+    by default) or **Photo → 3D** (`src/lib/depthFromImage.ts`: Depth-Anything
     depth × bg-removal mask). `heightToDataUrl`/`loadHeightField` (de)serialize.
 - **Per-piece look** (`HardscapeEditPanel` → `updateHardscape`): `color` tint,
   `roughness`, and a `textureId` into `HARDSCAPE_SURFACES`
@@ -177,6 +240,21 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   `src/lib/plantTextures.ts` — procedurally drawn leaf silhouettes by default,
   auto-swapped for a real cutout PNG when a species sets `texture`. Heights are
   capped to the tank so tall stems don't pierce the glass.
+- **Add-your-own plant (new species):** `PlantBrowser`'s **"＋ Add custom plant"**
+  opens `AddPlantModal` (`src/components/ui/AddPlantModal.tsx`) — pick a photo
+  (same `processPlantImage` cutout, shown on a checker bg) + fill name / category /
+  leaf form / difficulty / default height range / color, then **Add plant** →
+  `addCustomPlant({...})` mints a `PlantSpecies` (store-generated id always wins)
+  into `customPlants[]` (persisted) + stashes the cutout in
+  `customPlantTextures[id]`, and arms it for painting (`setActivePlant`). It shows
+  in the browser list alongside the built-in species (a 🗑 deletes the species,
+  its image, and any placed patches). Species
+  lookup is `getSpecies(id) ?? customPlants.find(...)` in both the editor
+  (`Plants.tsx`) and the gallery (`LiveTank` PreviewPatch, via `layout.customPlants`).
+  `getLayout()` prunes `customPlants`/`customPlantTextures` to referenced ids;
+  `loadLayout()`/`reset()` treat them like `customPlantTextures` (replace/clear) —
+  ponytail: switching scapes/reset wipes the custom palette; lift to a persistent
+  asset library if that's annoying.
 
 ## Known gotchas (project-specific)
 - **pnpm 11 build approval:** native deps (`sharp`, `unrs-resolver`) need
@@ -231,7 +309,9 @@ caustics, water tint + surface glare are all driven by the light rig** — per
 fixture type/color/position/intensity, with depth-based warm absorption via
 `src/lib/lightRig.ts`; animated caustics + bubbles, and **fish you control** — count/size/colour
 palette/swim pattern [school·calm·dart·scatter]/speed — that flock and steer off
-the glass), export/import + screenshot.
+the glass), a **saved-scape gallery** (Save the current scape — auto-flooded
+underwater for the tile — into a local, dark contest-style gallery grid; reopen
+restores its full look, New starts a blank slate), export/import + screenshot.
 
 **Deferred (next milestones):**
 1. Real scanned glTF hardscape + photoscanned PBR maps + HDRI environment — the

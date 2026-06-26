@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useStudioStore } from "@/store/useStudioStore";
+import { useLibraryStore } from "@/store/useLibraryStore";
 import { defaultCameraPosition } from "@/lib/units";
-import { screenshotCanvas } from "@/lib/persistence";
+import { screenshotCanvas, captureThumbnail } from "@/lib/persistence";
 import { TankScene } from "./scene/TankScene";
 import { Toolbar } from "./ui/Toolbar";
+import { Gallery } from "./ui/Gallery";
 import { TankPanel } from "./ui/TankPanel";
 import { HardscapePalette } from "./ui/HardscapePalette";
 import { HardscapeEditPanel } from "./ui/HardscapeEditPanel";
@@ -34,6 +36,7 @@ export function Studio() {
   const empty = useStudioStore(
     (s) => s.hardscape.length === 0 && s.plants.length === 0,
   );
+  const galleryOpen = useLibraryStore((s) => s.galleryOpen);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // WebGL only mounts on the client — avoids SSR/window issues.
@@ -74,6 +77,48 @@ export function Studio() {
 
   const onScreenshot = () => {
     if (canvasRef.current) screenshotCanvas(canvasRef.current);
+  };
+
+  // Save the current scape into the local gallery. Like a real aquascaping
+  // gallery, tiles show the *flooded* tank — so we flood it (switch to
+  // underwater), let the water/fish settle for a beat, capture, then store.
+  // Updates the open scape if there is one, else creates a named entry and
+  // reveals the gallery. Asks for the name up front (before flooding) so the
+  // prompt doesn't interrupt the capture.
+  const onSaveScape = () => {
+    if (!canvasRef.current) return;
+    const store = useStudioStore.getState();
+    const lib = useLibraryStore.getState();
+    const existing =
+      lib.currentId && lib.scapes.some((s) => s.id === lib.currentId);
+
+    let name: string | null = null;
+    if (!existing) {
+      name = prompt("Name this aquascape", "Untitled scape");
+      if (name === null) return; // cancelled
+    }
+
+    store.setMode("underwater"); // present it underwater for the gallery shot
+
+    // Give the water surface, caustics and fish a moment to mount + animate
+    // before grabbing the frame.
+    window.setTimeout(() => {
+      if (!canvasRef.current) return;
+      const thumb = captureThumbnail(canvasRef.current);
+      const layout = useStudioStore.getState().getLayout();
+      try {
+        if (existing) {
+          lib.updateScape(lib.currentId!, thumb, layout);
+        } else {
+          lib.createScape(name!.trim() || "Untitled scape", thumb, layout);
+          lib.setGallery(true);
+        }
+      } catch {
+        alert(
+          "Couldn't save — local storage may be full. Delete a scape or two and try again.",
+        );
+      }
+    }, 500);
   };
 
   // Render nothing interactive until mounted on the client. This keeps WebGL
@@ -124,7 +169,7 @@ export function Studio() {
 
       {/* UI overlay — dissolves in Zen mode so only the scape remains */}
       <div className="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3">
-        <Toolbar onScreenshot={onScreenshot} />
+        <Toolbar onScreenshot={onScreenshot} onSaveScape={onSaveScape} />
         <div
           className={`flex min-h-0 flex-1 gap-3 transition-all duration-[1100ms] ease-out ${
             zen ? "pointer-events-none translate-y-1 opacity-0" : "opacity-100"
@@ -152,6 +197,8 @@ export function Studio() {
           <SelectionBar />
         </div>
       </div>
+
+      {galleryOpen && <Gallery />}
     </div>
   );
 }

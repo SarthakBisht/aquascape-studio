@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { PLANT_SPECIES, PLANT_CATEGORIES } from "@/data/plants";
 import { processPlantImage } from "@/lib/plantImage";
+import { AddPlantModal } from "./AddPlantModal";
 import { Panel, Btn, Swatch } from "./primitives";
 import type { Difficulty, PlantCategory, PlantSpecies } from "@/lib/types";
 
@@ -54,15 +55,18 @@ function BrushSlider({
 function PlantRow({
   species,
   active,
+  isCustom,
   onSelect,
 }: {
   species: PlantSpecies;
   active: boolean;
+  isCustom: boolean;
   onSelect: () => void;
 }) {
   const custom = useStudioStore((s) => s.customPlantTextures[species.id]);
   const setPlantTexture = useStudioStore((s) => s.setPlantTexture);
   const clearPlantTexture = useStudioStore((s) => s.clearPlantTexture);
+  const removeCustomPlant = useStudioStore((s) => s.removeCustomPlant);
 
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -125,14 +129,24 @@ function PlantRow({
         className="flex items-center gap-1"
         onClick={(e) => e.stopPropagation()}
       >
-        {custom && (
+        {isCustom ? (
           <button
-            onClick={() => clearPlantTexture(species.id)}
-            title="Remove custom image"
+            onClick={() => removeCustomPlant(species.id)}
+            title="Delete this custom plant"
             className="rounded px-1 text-[11px] text-stone hover:text-rose-300"
           >
-            ✕
+            🗑
           </button>
+        ) : (
+          custom && (
+            <button
+              onClick={() => clearPlantTexture(species.id)}
+              title="Remove custom image"
+              className="rounded px-1 text-[11px] text-stone hover:text-rose-300"
+            >
+              ✕
+            </button>
+          )
         )}
         <button
           onClick={() => fileRef.current?.click()}
@@ -172,13 +186,16 @@ export function PlantBrowser() {
   const activePlantId = useStudioStore((s) => s.activePlantId);
   const setActivePlant = useStudioStore((s) => s.setActivePlant);
   const plants = useStudioStore((s) => s.plants);
+  const customPlants = useStudioStore((s) => s.customPlants);
   const brush = useStudioStore((s) => s.brush);
   const setBrush = useStudioStore((s) => s.setBrush);
 
   const [cat, setCat] = useState<PlantCategory | "all">("all");
   const [diff, setDiff] = useState<Difficulty | "all">("all");
+  const [addOpen, setAddOpen] = useState(false);
+  const customIds = new Set(customPlants.map((p) => p.id));
 
-  const filtered = PLANT_SPECIES.filter(
+  const filtered = [...PLANT_SPECIES, ...customPlants].filter(
     (p) =>
       (cat === "all" || p.category === cat) &&
       (diff === "all" || p.difficulty === diff),
@@ -216,12 +233,21 @@ export function PlantBrowser() {
             key={p.id}
             species={p}
             active={activePlantId === p.id}
+            isCustom={customIds.has(p.id)}
             onSelect={() =>
               setActivePlant(activePlantId === p.id ? null : p.id)
             }
           />
         ))}
       </div>
+
+      <button
+        onClick={() => setAddOpen(true)}
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-moss/40 px-2 py-1.5 text-[11px] text-moss transition-colors hover:bg-moss/10"
+      >
+        ＋ Add custom plant
+      </button>
+      <AddPlantModal open={addOpen} onClose={() => setAddOpen(false)} />
 
       <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
         <div className="mb-1 text-[10px] uppercase tracking-wide text-stone">
