@@ -10,7 +10,7 @@ import { getRockForm } from "@/data/rockForms";
 import { makeRockGeometry } from "@/lib/proceduralRock";
 import { makeDriftwoodGeometry, DEFAULT_DRIFT } from "@/lib/driftwood";
 import { meshFromHeightfield, loadHeightField } from "@/lib/heightfieldMesh";
-import { beginStroke, moveStroke } from "@/lib/surfaceInteraction";
+import { beginStroke, onSurfaceMove, clearHover } from "@/lib/surfaceInteraction";
 import { TriplanarMaterial } from "./TriplanarMaterial";
 import type { HardscapeItem, Vec3 } from "@/lib/types";
 
@@ -154,7 +154,8 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
         scale={item.scale}
         userData={{ paintable: true }}
         onPointerDown={beginStroke}
-        onPointerMove={moveStroke}
+        onPointerMove={onSurfaceMove}
+        onPointerOut={clearHover}
         onClick={(e) => {
           if (!editable) return;
           if (useStudioStore.getState().tool !== "select") return; // brush active → drawing

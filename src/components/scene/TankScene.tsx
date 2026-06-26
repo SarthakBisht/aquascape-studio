@@ -11,6 +11,7 @@ import { Substrate } from "./Substrate";
 import { GroundCover } from "./GroundCover";
 import { Hardscape } from "./Hardscape";
 import { PlacementGhost } from "./PlacementGhost";
+import { PlantTools } from "./PlantTools";
 import { Plants } from "./Plants";
 import { Water } from "./Water";
 import { Caustics } from "./Caustics";
@@ -48,6 +49,7 @@ export function TankScene() {
       <GroundCover />
       <Hardscape />
       <PlacementGhost />
+      <PlantTools />
       {showPlants && <Plants />}
       {underwater && <Caustics dims={tank} substrate={substrate} />}
       {underwater && <Water dims={tank} />}

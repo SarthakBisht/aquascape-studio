@@ -10,7 +10,10 @@ design a hardscape + planting layout, orbit around it from any angle, then
 ## Features
 
 - **Tank** — preset sizes (Nano, ADA 60-P/90-P/120-P, Shallow) or custom W×D×H,
-  with a **sculptable substrate** (aquasoil / sand / gravel): set the base
+  with a **sculptable substrate**: pick from a granular library of real products
+  (ADA Amazonia / Amazonia Light / Malaya, Tropica & Fluval soils, La Plata /
+  Nature / Colorado / black sand, river / quartz / basalt gravel — exact colours
+  + real grain sizes, rendered as procedural granular PBR), set the base
   front/back slope, then raise/carve free-form hills, valleys and terraces with
   the Sculpt brush — soil slumps to its angle of repose, so steep piles settle
   like the real thing.
@@ -62,8 +65,13 @@ design a hardscape + planting layout, orbit around it from any angle, then
   to paint** a patch of **crossed photographic billboards** (real leaf
   silhouettes per plant form, not grass-cones), correctly scaled & colored.
   Plants always rest on the surface you clicked. A **brush** controls area /
-  density / size. Drop a cutout PNG into `public/plants/` to upgrade any species
+  density / size. While planting, a pair of **tweezers** lowers a translucent
+  **ghost sprig** of the chosen plant onto the cursor so you see exactly what
+  lands where. Drop a cutout PNG into `public/plants/` to upgrade any species
   to a real photo (see [public/ASSETS.md](public/ASSETS.md)).
+- **Trim & shape** — hit **✂ Trim & shape** in the Plants panel and drag the
+  **scissors** over planted foliage to cut it shorter, sculpting the canopy like
+  a real trim (one undo per stroke).
 - **Bring your own plant photo** — drag an image onto a plant in the browser (or
   click **＋ img**); an **in-browser AI** removes the background and uses the
   cutout as that plant's look (saved per species). Plants without an image are
@@ -170,7 +178,8 @@ src/
   components/
     Studio.tsx         Canvas host + UI overlay (client, mounted-gated)
     scene/             TankScene, GlassTank, Substrate, Lighting, LightFixtures,
-                       Hardscape, TriplanarMaterial, PlacementGhost, Plants,
+                       Hardscape, TriplanarMaterial, PlacementGhost, PlantTools
+                       (tweezers/scissors cursors), Plants,
                        Water, Fish, CompositionGuides, LiveTank (gallery tile)
                        + Showroom3D (navigable 3D gallery room)
     ui/                Toolbar, TankPanel, HardscapePalette, HardscapeEditPanel,

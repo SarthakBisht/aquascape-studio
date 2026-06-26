@@ -4,18 +4,10 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useStudioStore } from "@/store/useStudioStore";
-import { beginStroke, moveStroke } from "@/lib/surfaceInteraction";
+import { beginStroke, onSurfaceMove, clearHover } from "@/lib/surfaceInteraction";
 import { fieldGrid, sampleField } from "@/lib/terrain";
+import { useSubstrateTextures } from "@/lib/substrateTextureGen";
 import type { SubstrateConfig, TankDimensions } from "@/lib/types";
-
-const SUBSTRATE_LOOK: Record<
-  SubstrateConfig["type"],
-  { color: string; roughness: number }
-> = {
-  aquasoil: { color: "#2b2420", roughness: 1.0 }, // dark nutrient soil
-  sand: { color: "#d8c79f", roughness: 0.95 },
-  gravel: { color: "#8c8478", roughness: 1.0 },
-};
 
 // A solid slab whose top face slopes up toward the back (the classic
 // front-to-back slope that fakes depth). Bottom sits flush on the glass floor.
@@ -60,7 +52,7 @@ export function Substrate({
   // GPU geometry is rebuilt each sculpt — release the previous one.
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  const look = SUBSTRATE_LOOK[substrate.type];
+  const tex = useSubstrateTextures(substrate, w, d);
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     // a plain click on the bed clears the current selection (paint is handled
@@ -76,12 +68,15 @@ export function Substrate({
       receiveShadow
       userData={{ paintable: true }}
       onPointerDown={beginStroke}
-      onPointerMove={moveStroke}
+      onPointerMove={onSurfaceMove}
+      onPointerOut={clearHover}
       onClick={onClick}
     >
       <meshStandardMaterial
-        color={look.color}
-        roughness={look.roughness}
+        map={tex.albedo}
+        normalMap={tex.normal}
+        roughnessMap={tex.roughness}
+        roughness={1}
         metalness={0}
       />
     </mesh>

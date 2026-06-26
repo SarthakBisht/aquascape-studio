@@ -51,6 +51,7 @@ const DEFAULT_TANK: TankDimensions =
 
 const DEFAULT_SUBSTRATE: SubstrateConfig = {
   type: "aquasoil",
+  variant: "amazonia",
   depthFront: 3,
   depthBack: 7,
 };
@@ -159,7 +160,7 @@ interface StudioState {
   transformMode: TransformMode;
   activePlantId: string | null; // species "loaded" for the plant brush
   activeGround: SubstrateType | null; // material "loaded" for the draw brush
-  tool: "select" | "plant" | "ground" | "place" | "sculpt";
+  tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim";
   /** Sculpt brush direction: +1 raises soil, -1 carves it. Transient. */
   sculptDir: 1 | -1;
   placingMaterialId: string | null; // rock armed for ghost placement (transient)
@@ -196,17 +197,21 @@ interface StudioState {
 
   setActivePlant: (speciesId: string | null) => void;
   setActiveGround: (type: SubstrateType | null) => void;
-  setTool: (tool: "select" | "plant" | "ground" | "place" | "sculpt") => void;
+  setTool: (tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim") => void;
   setSculptDir: (dir: 1 | -1) => void;
   /** Raise (+) / carve (−) the substrate height field under a world point. */
   sculptSubstrate: (px: number, pz: number) => void;
   setBrush: (patch: Partial<StudioState["brush"]>) => void;
   addPlantPatch: (speciesId: string, position: Vec3, blades?: Blade[]) => void;
+  /** Trim plant blades within the brush radius of a world point (cut shorter). */
+  trimPlants: (px: number, pz: number) => void;
   removePlant: (id: string) => void;
   setPlantTexture: (speciesId: string, dataUrl: string) => void;
   clearPlantTexture: (speciesId: string) => void;
   /** Create a user plant species (defaults filled). Returns its id. */
   addCustomPlant: (partial?: Partial<PlantSpecies>) => string;
+  /** Edit a custom plant's fields (id is preserved). */
+  updateCustomPlant: (id: string, patch: Partial<PlantSpecies>) => void;
   /** Delete a custom plant: its species, image, and any placed patches of it. */
   removeCustomPlant: (id: string) => void;
   addGroundPatch: (type: SubstrateType, position: Vec3) => void;
@@ -430,7 +435,7 @@ export const useStudioStore = create<StudioState>()(
       setTool: (tool) =>
         set({
           tool,
-          ...(tool === "select"
+          ...(tool === "select" || tool === "trim"
             ? { activePlantId: null, activeGround: null, placingMaterialId: null }
             : {}),
         }),
@@ -475,6 +480,32 @@ export const useStudioStore = create<StudioState>()(
         };
         set((s) => ({ plants: [...s.plants, patch] }));
       },
+      trimPlants: (px, pz) => {
+        get().pushHistory(); // suppressed mid-stroke (one undo per drag)
+        const r = get().brush.radius;
+        const r2 = r * r;
+        set((s) => ({
+          plants: s.plants.map((p) => {
+            // Blade-level trim: cut every blade under the scissors shorter.
+            if (p.blades?.length) {
+              let cut = false;
+              const blades = p.blades.map((b) => {
+                const dx = p.position[0] + b.x - px;
+                const dz = p.position[2] + b.z - pz;
+                if (dx * dx + dz * dz > r2) return b;
+                cut = true;
+                return { ...b, hMul: Math.max(0.12, b.hMul * 0.78) };
+              });
+              return cut ? { ...p, blades } : p;
+            }
+            // Legacy patches (no per-blade data): shrink the whole patch.
+            const dx = p.position[0] - px;
+            const dz = p.position[2] - pz;
+            if (dx * dx + dz * dz > r2) return p;
+            return { ...p, scale: Math.max(0.15, (p.scale ?? 1) * 0.85) };
+          }),
+        }));
+      },
       removePlant: (id) => {
         get().pushHistory();
         set((s) => ({ plants: s.plants.filter((p) => p.id !== id) }));
@@ -510,6 +541,12 @@ export const useStudioStore = create<StudioState>()(
         set((s) => ({ customPlants: [...s.customPlants, species] }));
         return id;
       },
+      updateCustomPlant: (id, patch) =>
+        set((s) => ({
+          customPlants: s.customPlants.map((p) =>
+            p.id === id ? { ...p, ...patch, id } : p,
+          ),
+        })),
       removeCustomPlant: (id) => {
         get().pushHistory();
         set((s) => {

@@ -22,6 +22,9 @@ export interface HeightField {
 
 export interface SubstrateConfig {
   type: SubstrateType;
+  /** Granular look/colour variant id (see `src/data/substrates.ts`). Optional:
+   *  legacy layouts without it fall back to the first variant of `type`. */
+  variant?: string;
   /** Average depth in cm at the front of the tank. */
   depthFront: number;
   /** Average depth in cm at the back (usually higher → "slope" for depth). */

@@ -23,6 +23,7 @@ import { makeDriftwoodGeometry, DEFAULT_DRIFT } from "@/lib/driftwood";
 import { meshFromHeightfield, loadHeightField } from "@/lib/heightfieldMesh";
 import { usePlantTexture } from "@/lib/plantTextures";
 import { fieldGrid, sampleField } from "@/lib/terrain";
+import { useSubstrateTextures } from "@/lib/substrateTextureGen";
 import { kelvinToRgb } from "@/lib/lightColor";
 import { defaultCameraPosition, tankCenter } from "@/lib/units";
 import type {
@@ -44,12 +45,6 @@ import type {
 // editor store, so showing a preview can never mutate the working scape. Only
 // mounted while the tile is on-screen (see LiveTank) so the browser never runs
 // out of WebGL contexts.
-
-const SUBSTRATE_LOOK: Record<string, { color: string; roughness: number }> = {
-  aquasoil: { color: "#2b2420", roughness: 1.0 },
-  sand: { color: "#d8c79f", roughness: 0.95 },
-  gravel: { color: "#8c8478", roughness: 1.0 },
-};
 
 const FORM_WIDTH: Record<PlantForm, number> = {
   blade: 0.4,
@@ -107,10 +102,16 @@ function PreviewSubstrate({
 
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  const look = SUBSTRATE_LOOK[substrate.type] ?? SUBSTRATE_LOOK.aquasoil;
+  const tex = useSubstrateTextures(substrate, w, d);
   return (
     <mesh geometry={geometry} receiveShadow>
-      <meshStandardMaterial color={look.color} roughness={look.roughness} metalness={0} />
+      <meshStandardMaterial
+        map={tex.albedo}
+        normalMap={tex.normal}
+        roughnessMap={tex.roughness}
+        roughness={1}
+        metalness={0}
+      />
     </mesh>
   );
 }

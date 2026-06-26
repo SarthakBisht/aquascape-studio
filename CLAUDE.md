@@ -70,6 +70,7 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        │               surface — ON BY DEFAULT via material.textureId) + per-piece
        │               color tint, or flat vertex-color fallback; + gizmo
        ├─ PlacementGhost (cursor-following rock ghost while placing)
+       ├─ PlantTools (tweezers + ghost sprig when planting / scissors when trimming)
        ├─ Plants     → Patch (instanced crossed-billboard cards, paint-to-fill)
        ├─ Caustics · Water · Bubbles · Fish                 (underwater mode)
        ├─ CompositionGuides   front-view thirds/golden grid drawn ON the glass
@@ -92,7 +93,7 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   brightness/contrast/saturation/hue color grade) and the plant `brush`
   (`radius`/`density`/`scale` applied to newly painted patches). Transient,
   never persisted: `selectedId`, `transformMode`, `activePlantId`, `activeGround`,
-  `tool` (now `select|plant|ground|place|sculpt`), `sculptDir` (+1 raise / −1
+  `tool` (now `select|plant|ground|place|sculpt|trim`), `sculptDir` (+1 raise / −1
   carve), and the placement pair
   `placingMaterialId`/`placingSeed`. Also persisted: `customMeshes`
   (meshId → grayscale height PNG for generated pieces, mirrors
@@ -230,17 +231,30 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   vertical `gradient` / `backlit` radial glow with controllable color, intensity
   (`glow`) and source position (`glowX`/`glowY`). Config in `background`, presets
   (white/black/blue/aqua/night/Lumen/Lagoon/Sunset) in `src/data/backgrounds.ts`.
-- **Drawing / painting (the "pen"):** `tool` is `select | plant | ground | sculpt`.
+- **Drawing / painting (the "pen"):** `tool` is `select | plant | ground | sculpt | trim`.
   Pick a plant (`PlantBrowser` → `activePlantId`), a material (`DrawPanel` →
-  `activeGround`), or **Sculpt slope** (Raise/Carve in `DrawPanel`), then
-  press-drag on the tank. The stroke engine
+  `activeGround`), **Sculpt slope** (Raise/Carve in `DrawPanel`), or **✂ Trim &
+  shape** (`PlantBrowser`), then press-drag on the tank. The stroke engine
   (`src/lib/surfaceInteraction.ts`: `beginStroke`/`moveStroke`/`endStroke`)
   raycasts the **paintable** surfaces (Substrate, Hardscape, GroundCover —
   tagged `userData.paintable`) so everything lands on the real surface. Plant
   blades are sampled per-blade onto the surface (slope/stone/wood); material
-  patches (`ground[]`, rendered by `GroundCover`) are laid level. OrbitControls
-  is disabled while a brush is active (`enabled={tool === "select"}`) so dragging
-  draws; deselect/stop via `onPointerMissed` or the DrawPanel stop button.
+  patches (`ground[]`, rendered by `GroundCover`) are laid level; **trim** cuts
+  the `hMul` of every blade within the brush radius of the cursor shorter
+  (`trimPlants` in the store — drag the scissors to sculpt the canopy; one undo
+  per stroke). OrbitControls is disabled while a brush is active
+  (`enabled={tool === "select"}`) so dragging draws; deselect/stop via
+  `onPointerMissed` or the panel stop button.
+- **Hand-tool cursors** (`src/components/scene/PlantTools.tsx`): while the plant
+  tool is armed, a pair of **tweezers** lowers a translucent **ghost sprig** of
+  the chosen species onto the surface; while trimming, a pair of **scissors**
+  snips over the canopy. Both follow a shared `hover` point (exported from
+  `surfaceInteraction.ts`, written on paintable-surface `onPointerMove`, cleared
+  `onPointerOut`) updated **imperatively in `useFrame`** (no React renders), face
+  the camera by azimuth, and are non-raycastable (`raycast={()=>null}`) so they
+  never block the paint stroke beneath them. A footprint **ring** shows the brush
+  area. ponytail ceiling: procedural box/torus tools (not real models), animated
+  by sine — swap for a `.glb` if you want photoreal hardware.
 - **Substrate terrain (sculptable height field):** the bed is no longer a flat
   front→back ramp. `SubstrateConfig.field` (`HeightField` = depth-cm per grid
   cell, `src/lib/terrain.ts`) drives the top surface, so free-form hills,
@@ -271,8 +285,11 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   `addCustomPlant({...})` mints a `PlantSpecies` (store-generated id always wins)
   into `customPlants[]` (persisted) + stashes the cutout in
   `customPlantTextures[id]`, and arms it for painting (`setActivePlant`). It shows
-  in the browser list alongside the built-in species (a 🗑 deletes the species,
-  its image, and any placed patches). Species
+  in the browser list alongside the built-in species (✎ reopens the same modal to
+  **edit** it via `updateCustomPlant`; 🗑 deletes the species, its image, and any
+  placed patches). The modal mounts inside `PlantBrowser` (fixed-position works
+  even under the blurred panel, like `DrawShapeModal`) and uses `colorScheme:dark`
+  selects so the native dropdowns stay readable on the dark theme. Species
   lookup is `getSpecies(id) ?? customPlants.find(...)` in both the editor
   (`Plants.tsx`) and the gallery (`LiveTank` PreviewPatch, via `layout.customPlants`).
   `getLayout()` prunes `customPlants`/`customPlantTextures` to referenced ids;

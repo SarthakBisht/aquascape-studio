@@ -17,6 +17,25 @@ const _origin = new THREE.Vector3();
 
 const stroke = { active: false, lastX: 0, lastZ: 0, painted: false };
 
+// Shared cursor point on the paintable surface, read imperatively by the plant /
+// trim tool ghosts (tweezers, scissors, plant preview) so they never trigger a
+// React render. `active` falls false when the pointer leaves every surface.
+export const hover = { x: 0, y: 0, z: 0, active: false };
+export function trackHover(e: ThreeEvent<PointerEvent>) {
+  hover.x = e.point.x;
+  hover.y = e.point.y;
+  hover.z = e.point.z;
+  hover.active = true;
+}
+export function clearHover() {
+  hover.active = false;
+}
+/** onPointerMove for paintable surfaces: track the cursor + advance any stroke. */
+export function onSurfaceMove(e: ThreeEvent<PointerEvent>) {
+  trackHover(e);
+  moveStroke(e);
+}
+
 function sceneRoot(obj: THREE.Object3D): THREE.Object3D {
   let o = obj;
   while (o.parent) o = o.parent;
@@ -93,6 +112,7 @@ function paintAt(e: ThreeEvent<PointerEvent>) {
   if (s.tool === "plant") paintPlant(e);
   else if (s.tool === "ground") paintGround(e);
   else if (s.tool === "sculpt") s.sculptSubstrate(e.point.x, e.point.z);
+  else if (s.tool === "trim") s.trimPlants(e.point.x, e.point.z);
   stroke.lastX = e.point.x;
   stroke.lastZ = e.point.z;
   stroke.painted = true;

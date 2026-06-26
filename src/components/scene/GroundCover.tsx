@@ -1,7 +1,7 @@
 "use client";
 
 import { useStudioStore } from "@/store/useStudioStore";
-import { beginStroke, moveStroke } from "@/lib/surfaceInteraction";
+import { beginStroke, onSurfaceMove, clearHover } from "@/lib/surfaceInteraction";
 import type { SubstrateType } from "@/lib/types";
 
 // Drawn substrate-material patches (e.g. a sand path) — flat, level discs laid
@@ -26,7 +26,8 @@ export function GroundCover() {
             rotation={[-Math.PI / 2, 0, 0]}
             userData={{ paintable: true }}
             onPointerDown={beginStroke}
-            onPointerMove={moveStroke}
+            onPointerMove={onSurfaceMove}
+            onPointerOut={clearHover}
           >
             <circleGeometry args={[p.radius, 28]} />
             <meshStandardMaterial

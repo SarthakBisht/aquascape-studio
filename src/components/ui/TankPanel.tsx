@@ -4,12 +4,13 @@ import { useStudioStore } from "@/store/useStudioStore";
 import { TANK_PRESETS, TANK_LIMITS } from "@/data/tankPresets";
 import { STYLE_PRESETS, getStyle } from "@/data/stylePresets";
 import { Panel, Btn } from "./primitives";
+import { SUBSTRATES, resolveSubstrate } from "@/data/substrates";
 import type { SubstrateType, TankDimensions } from "@/lib/types";
 
-const SUBSTRATES: { id: SubstrateType; label: string }[] = [
-  { id: "aquasoil", label: "Aquasoil" },
-  { id: "sand", label: "Sand" },
-  { id: "gravel", label: "Gravel" },
+const SUBSTRATE_GROUPS: { type: SubstrateType; label: string }[] = [
+  { type: "aquasoil", label: "Aqua soil" },
+  { type: "sand", label: "Sand" },
+  { type: "gravel", label: "Gravel" },
 ];
 
 function clamp(v: number, [min, max]: readonly [number, number]) {
@@ -70,17 +71,36 @@ export function TankPanel() {
       <div className="mb-2 text-[10px] uppercase tracking-wide text-stone">
         Substrate
       </div>
-      <div className="mb-2 flex gap-1.5">
-        {SUBSTRATES.map((s) => (
-          <Btn
-            key={s.id}
-            active={substrate.type === s.id}
-            onClick={() => setSubstrate({ type: s.id })}
-          >
-            {s.label}
-          </Btn>
-        ))}
-      </div>
+      {SUBSTRATE_GROUPS.map((g) => (
+        <div key={g.type} className="mb-2">
+          <div className="mb-1 text-[9px] text-stone/70">{g.label}</div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {SUBSTRATES.filter((s) => s.type === g.type).map((s) => {
+              const active = resolveSubstrate(substrate).id === s.id;
+              return (
+                <button
+                  key={s.id}
+                  title={s.label}
+                  onClick={() => setSubstrate({ variant: s.id, type: s.type })}
+                  className={`flex flex-col items-center gap-1 rounded-md border p-1 text-[8px] leading-tight transition ${
+                    active
+                      ? "border-aqua bg-aqua/10 text-mist"
+                      : "border-mist/10 bg-mist/[0.04] text-stone hover:border-mist/25"
+                  }`}
+                >
+                  <span
+                    className="h-5 w-full rounded-sm"
+                    style={{
+                      background: `radial-gradient(circle at 30% 30%, ${s.accent}, ${s.color})`,
+                    }}
+                  />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
       <div className="mb-3 flex gap-1.5">
         <label className="flex flex-1 flex-col gap-1 text-[10px] text-stone">
           Front (cm)
