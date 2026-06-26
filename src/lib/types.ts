@@ -12,12 +12,26 @@ export interface TankDimensions {
 
 export type SubstrateType = "aquasoil" | "sand" | "gravel";
 
+/** Editable substrate top surface: depth (cm) per grid cell, row-major
+ *  (j=0 front → j=nz-1 back, i over width). See `src/lib/terrain.ts`. */
+export interface HeightField {
+  nx: number;
+  nz: number;
+  h: number[];
+}
+
 export interface SubstrateConfig {
   type: SubstrateType;
   /** Average depth in cm at the front of the tank. */
   depthFront: number;
   /** Average depth in cm at the back (usually higher → "slope" for depth). */
   depthBack: number;
+  /**
+   * Sculpted top surface (absolute depth in cm per grid cell). When set, it
+   * overrides the flat front/back ramp so hills, valleys and terraces are
+   * possible. Seeded from depthFront/depthBack; see `src/lib/terrain.ts`.
+   */
+  field?: HeightField;
 }
 
 export type HardscapeKind = "rock" | "wood";
@@ -41,12 +55,59 @@ export interface HardscapeMaterial {
   veinColor?: string;
   /** Horizontal stratification — layered sedimentary look (Pagoda / petrified wood). */
   strata?: boolean;
+  /** Default PBR surface id (HARDSCAPE_SURFACES) so library pieces ship textured,
+   *  not flat. A per-piece `textureId` override still wins. */
+  textureId?: string;
   /**
    * Optional path to a real .glb model (e.g. "/models/seiryu-01.glb"). When set
    * it replaces the procedural rock — the upgrade path to scanned hardscape.
    * See public/ASSETS.md.
    */
   model?: string;
+}
+
+/** A surface in the PBR library. Albedo/normal/roughness maps are generated
+ *  procedurally from these params (seeded, seamless) — no bundled image files,
+ *  no CORS/404 risk. Drop-in upgrade path: swap the generator for real maps. */
+export interface HardscapeSurface {
+  id: string;
+  label: string;
+  kind: HardscapeKind;
+  /** Base stone/wood color (hex). */
+  base: string;
+  /** Secondary mottle / grain color (hex). */
+  accent: string;
+  /** Feature size of the grain, in cm (bigger = coarser). */
+  grainCm: number;
+  /** Real-world tile size in cm (drives triplanar repeat). */
+  tileCm: number;
+  /** Base roughness + how much it varies across the grain. */
+  roughBase: number;
+  roughVar: number;
+  /** Normal-map bump strength. */
+  bump: number;
+  /** Horizontal banding (sedimentary stone / wood grain). */
+  strata?: boolean;
+}
+
+/** Parameters for the procedural branching driftwood generator. */
+export interface DriftParams {
+  branches: number; // primary limbs off the base
+  length: number; // overall reach (relative)
+  gnarl: number; // how much each limb wanders
+  taper: number; // how fast limbs thin toward the tip
+  splits: number; // recursive child branches per limb
+  thickness: number; // base trunk radius (relative)
+}
+
+/** A generated mesh (from a drawing or a depth photo), persisted as a small
+ *  grayscale height PNG so the layout stays light and rebuilds deterministically
+ *  on load — no model re-run. */
+export interface CustomMesh {
+  /** Grayscale height field as a PNG data URL (white = tall). */
+  height: string;
+  w: number;
+  h: number;
 }
 
 /** A placed piece of hardscape in the scene. */
@@ -60,6 +121,27 @@ export interface HardscapeItem {
   scale: number;
   /** Seed drives the procedural geometry so each rock is unique but stable. */
   seed: number;
+
+  /** Geometry source. Undefined ⇒ "procedural" (legacy rocks). */
+  source?: "procedural" | "drift" | "mesh";
+
+  // ---- per-piece look overrides (fall back to the material) ----
+  color?: string;
+  /** Triplanar PBR surface from HARDSCAPE_SURFACES; overrides material default. */
+  textureId?: string;
+  roughness?: number;
+
+  // ---- per-piece rock sculpt overrides (passed to makeRockGeometry) ----
+  shape?: Vec3;
+  jaggedness?: number;
+  detail?: number;
+  strata?: boolean;
+  veinColor?: string;
+
+  /** Driftwood generator params (when source === "drift"). */
+  drift?: DriftParams;
+  /** Key into the store's customMeshes (when source === "mesh"). */
+  meshId?: string;
 }
 
 export type PlantCategory =
@@ -162,6 +244,22 @@ export interface StylePreset {
 export type Quality = "low" | "medium" | "high";
 export type ViewMode = "design" | "underwater";
 
+/** Which glass pane(s) the composition grid is drawn on, and at what ratio. */
+export type GuideFace = "front" | "back" | "both";
+export type GuideRatio = "thirds" | "golden" | "both";
+export interface GuideConfig {
+  face: GuideFace;
+  ratio: GuideRatio;
+}
+
+/** Global color grade applied to the whole render (post-process). Neutral = all 0. */
+export interface ColorGrade {
+  brightness: number; // -1..1
+  contrast: number; // -1..1
+  saturation: number; // -1..1
+  hue: number; // 0..360 deg tint
+}
+
 export type FishPattern = "school" | "calm" | "dart" | "scatter";
 export type FishPalette = "tropical" | "neon" | "natural" | "mono";
 
@@ -213,9 +311,12 @@ export interface BackgroundConfig {
   glowY?: number;
 }
 
-/** The serializable layout that gets saved / exported / shared. */
+/** The serializable layout that gets saved / exported / shared.
+ *  v2 captures the full look (lights, fish, grade, ambience, growth, view mode,
+ *  custom plant photos) so a reopened scape — incl. its underwater settings —
+ *  is restored exactly. v1 files still load (the extras default). */
 export interface Layout {
-  version: 1;
+  version: 1 | 2;
   tank: TankDimensions;
   substrate: SubstrateConfig;
   style: AquascapeStyle | null;
@@ -223,4 +324,18 @@ export interface Layout {
   plants: PlantPlacement[];
   ground?: GroundPatch[];
   background?: BackgroundConfig;
+  /** Generated custom-mesh height fields referenced by hardscape pieces. */
+  customMeshes?: Record<string, CustomMesh>;
+
+  // ---- v2: full scape look ----
+  ambience?: string;
+  lights?: LightFixture[];
+  fish?: FishConfig;
+  grade?: ColorGrade;
+  growth?: number;
+  guides?: GuideConfig;
+  /** Design vs underwater — so the gallery shows the scape as it was saved. */
+  mode?: ViewMode;
+  /** Per-species billboard photos referenced by the plants. */
+  customPlantTextures?: Record<string, string>;
 }

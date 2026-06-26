@@ -18,6 +18,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     shape: [1.1, 1.0, 0.9],
     jaggedness: 0.5,
     veinColor: "#d9dde0",
+    textureId: "seiryu-tex",
   },
   {
     id: "dragon",
@@ -29,6 +30,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     metalness: 0.0,
     shape: [1.0, 1.05, 1.0],
     jaggedness: 0.55,
+    textureId: "dragonstone",
   },
   {
     id: "lava",
@@ -40,6 +42,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     metalness: 0.0,
     shape: [1.0, 0.9, 1.0],
     jaggedness: 0.6,
+    textureId: "lava-tex",
   },
   {
     id: "frodo",
@@ -52,6 +55,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     shape: [1.15, 0.95, 0.9],
     jaggedness: 0.5,
     veinColor: "#b9b2a6",
+    textureId: "granite",
   },
   {
     id: "elephant",
@@ -63,6 +67,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     metalness: 0.0,
     shape: [1.1, 0.85, 1.0],
     jaggedness: 0.3,
+    textureId: "granite",
   },
   {
     id: "pagoda",
@@ -76,6 +81,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     jaggedness: 0.32,
     strata: true,
     veinColor: "#8a7b67",
+    textureId: "slate",
   },
   {
     id: "petrified",
@@ -89,6 +95,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     jaggedness: 0.28,
     strata: true,
     veinColor: "#9a7b5a",
+    textureId: "petrified-tex",
   },
   {
     id: "spiderwood",
@@ -99,6 +106,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     roughness: 0.9,
     metalness: 0.0,
     shape: [0.45, 1.6, 0.45],
+    textureId: "driftbark",
   },
   {
     id: "manzanita",
@@ -109,6 +117,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     roughness: 0.85,
     metalness: 0.0,
     shape: [0.4, 1.8, 0.4],
+    textureId: "oldwood",
   },
 ];
 

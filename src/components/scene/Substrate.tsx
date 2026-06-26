@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useStudioStore } from "@/store/useStudioStore";
 import { beginStroke, moveStroke } from "@/lib/surfaceInteraction";
+import { fieldGrid, sampleField } from "@/lib/terrain";
 import type { SubstrateConfig, TankDimensions } from "@/lib/types";
 
 const SUBSTRATE_LOOK: Record<
@@ -28,21 +29,25 @@ export function Substrate({
   const { width: w, depth: d } = dims;
   const innerW = w * 0.98;
   const innerD = d * 0.98;
+  const field = substrate.field;
 
   const geometry = useMemo(() => {
-    const geo = new THREE.BoxGeometry(innerW, 1, innerD, 1, 1, 1);
+    // Subdivide the top so a sculpted height field renders as real terrain;
+    // the side/bottom skirt keeps it a closed, orbitable slab.
+    const { nx, nz } = fieldGrid(w, d);
+    const geo = new THREE.BoxGeometry(innerW, 1, innerD, nx - 1, 1, nz - 1);
     const pos = geo.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i);
       if (y > 0) {
-        // top face — height interpolates front (+z) → back (-z)
+        // top half (top face + the upper edge of the side walls)
+        const x = pos.getX(i);
         const z = pos.getZ(i);
-        const backness = THREE.MathUtils.clamp(-z / innerD + 0.5, 0, 1);
-        const depth = THREE.MathUtils.lerp(
-          substrate.depthFront,
-          substrate.depthBack,
-          backness,
-        );
+        const u = THREE.MathUtils.clamp(x / innerW + 0.5, 0, 1);
+        const v = THREE.MathUtils.clamp(0.5 - z / innerD, 0, 1); // 0 front → 1 back
+        const depth = field
+          ? sampleField(field, u, v)
+          : THREE.MathUtils.lerp(substrate.depthFront, substrate.depthBack, v);
         pos.setY(i, depth);
       } else {
         pos.setY(i, 0); // bottom flush on floor
@@ -50,7 +55,10 @@ export function Substrate({
     }
     geo.computeVertexNormals();
     return geo;
-  }, [innerW, innerD, substrate.depthFront, substrate.depthBack]);
+  }, [w, d, innerW, innerD, substrate.depthFront, substrate.depthBack, field]);
+
+  // GPU geometry is rebuilt each sculpt — release the previous one.
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   const look = SUBSTRATE_LOOK[substrate.type];
 

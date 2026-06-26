@@ -5,8 +5,12 @@ import * as THREE from "three";
 import { Clone, Outlines, TransformControls, useGLTF } from "@react-three/drei";
 import { useStudioStore } from "@/store/useStudioStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
+import { getSurface } from "@/data/hardscapeTextures";
 import { makeRockGeometry } from "@/lib/proceduralRock";
+import { makeDriftwoodGeometry, DEFAULT_DRIFT } from "@/lib/driftwood";
+import { meshFromHeightfield, loadHeightField } from "@/lib/heightfieldMesh";
 import { beginStroke, moveStroke } from "@/lib/surfaceInteraction";
+import { TriplanarMaterial } from "./TriplanarMaterial";
 import type { HardscapeItem, Vec3 } from "@/lib/types";
 
 // Real scanned .glb hardscape, normalized to a unit footprint and seated on the
@@ -52,18 +56,31 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
   const editable = mode === "design";
   const isSelected = editable && selectedId === item.id;
 
-  const geometry = useMemo(() => {
+  // Per-piece sculpt overrides win, then the material default, then a kind default.
+  // (mesh source → built async below from a stored height field.)
+  const procGeometry = useMemo(() => {
+    if (item.source === "mesh") return null;
+    if (item.source === "drift") {
+      return makeDriftwoodGeometry(item.seed, item.drift ?? DEFAULT_DRIFT);
+    }
     const isWood = item.kind === "wood";
     return makeRockGeometry(item.seed, {
-      jaggedness: material?.jaggedness ?? (isWood ? 0.22 : 0.45),
-      detail: isWood ? 1 : 2,
-      shape: material?.shape ?? [1, 1, 1],
-      veinColor: material?.veinColor,
-      strata: material?.strata,
+      jaggedness: item.jaggedness ?? material?.jaggedness ?? (isWood ? 0.22 : 0.45),
+      detail: item.detail ?? (isWood ? 1 : 3),
+      shape: item.shape ?? material?.shape ?? [1, 1, 1],
+      veinColor: item.veinColor ?? material?.veinColor,
+      strata: item.strata ?? material?.strata,
     });
   }, [
+    item.source,
     item.seed,
     item.kind,
+    item.drift,
+    item.jaggedness,
+    item.detail,
+    item.shape,
+    item.veinColor,
+    item.strata,
     material?.shape,
     material?.jaggedness,
     material?.veinColor,
@@ -71,7 +88,42 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
   ]);
 
   // Geometries live in GPU memory until disposed.
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => procGeometry?.dispose(), [procGeometry]);
+
+  // Generated (drawn / depth-photo) pieces rebuild geometry from a stored height
+  // PNG. Subscribe to just this piece's mesh entry.
+  const customHeight = useStudioStore((s) =>
+    item.source === "mesh" && item.meshId
+      ? s.customMeshes[item.meshId]?.height
+      : undefined,
+  );
+  const [meshGeo, setMeshGeo] = useState<THREE.BufferGeometry | null>(null);
+  useEffect(() => {
+    if (!customHeight) {
+      setMeshGeo(null);
+      return;
+    }
+    let alive = true;
+    let g: THREE.BufferGeometry | null = null;
+    loadHeightField(customHeight).then(({ height, w, h }) => {
+      if (!alive) return;
+      g = meshFromHeightfield(height, w, h);
+      setMeshGeo(g);
+    });
+    return () => {
+      alive = false;
+      g?.dispose();
+    };
+  }, [customHeight]);
+
+  const geometry = item.source === "mesh" ? meshGeo : procGeometry;
+
+  const surface = getSurface(item.textureId ?? material?.textureId ?? "");
+  // With a PBR surface the texture carries the stone's colour, so the per-piece
+  // tint defaults to white (a multiply) — set a color in Customize to recolour.
+  const color =
+    item.color ?? (surface ? "#ffffff" : material?.color ?? "#7a7a7a");
+  const roughness = item.roughness ?? material?.roughness ?? 0.9;
 
   const writeBack = () => {
     if (!obj) return;
@@ -103,18 +155,27 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
           <Suspense fallback={null}>
             <HardscapeModel url={material.model} />
           </Suspense>
-        ) : (
+        ) : geometry ? (
           <mesh geometry={geometry} castShadow receiveShadow>
-            <meshStandardMaterial
-              color={material?.color ?? "#7a7a7a"}
-              roughness={material?.roughness ?? 0.9}
-              metalness={material?.metalness ?? 0}
-              vertexColors
-              flatShading
-            />
+            {surface ? (
+              <TriplanarMaterial
+                surface={surface}
+                color={color}
+                roughness={roughness}
+                seed={item.seed}
+              />
+            ) : (
+              <meshStandardMaterial
+                color={color}
+                roughness={roughness}
+                metalness={material?.metalness ?? 0}
+                vertexColors
+                flatShading
+              />
+            )}
             {isSelected && <Outlines thickness={3} color="#b8cf90" />}
           </mesh>
-        )}
+        ) : null}
       </group>
       {isSelected && obj && (
         <TransformControls

@@ -92,6 +92,7 @@ function paintAt(e: ThreeEvent<PointerEvent>) {
   const s = useStudioStore.getState();
   if (s.tool === "plant") paintPlant(e);
   else if (s.tool === "ground") paintGround(e);
+  else if (s.tool === "sculpt") s.sculptSubstrate(e.point.x, e.point.z);
   stroke.lastX = e.point.x;
   stroke.lastZ = e.point.z;
   stroke.painted = true;

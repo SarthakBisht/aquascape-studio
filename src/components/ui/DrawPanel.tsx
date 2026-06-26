@@ -17,9 +17,54 @@ export function DrawPanel() {
   const setTool = useStudioStore((s) => s.setTool);
   const brush = useStudioStore((s) => s.brush);
   const setBrush = useStudioStore((s) => s.setBrush);
+  const sculptDir = useStudioStore((s) => s.sculptDir);
+  const setSculptDir = useStudioStore((s) => s.setSculptDir);
+  const substrate = useStudioStore((s) => s.substrate);
+  const setSubstrate = useStudioStore((s) => s.setSubstrate);
+
+  const startSculpt = (dir: 1 | -1) => {
+    setActiveGround(null);
+    setSculptDir(dir);
+    setTool("sculpt");
+  };
 
   return (
     <Panel title="Draw">
+      <div className="mb-1 text-[10px] uppercase tracking-wide text-stone">
+        Sculpt slope
+      </div>
+      <div className="flex gap-1.5">
+        <Btn
+          active={tool === "sculpt" && sculptDir === 1}
+          onClick={() => startSculpt(1)}
+          title="Pile soil into hills / raise the slope"
+        >
+          ⛰ Raise
+        </Btn>
+        <Btn
+          active={tool === "sculpt" && sculptDir === -1}
+          onClick={() => startSculpt(-1)}
+          title="Carve valleys / lower the slope"
+        >
+          ⛏ Carve
+        </Btn>
+        <Btn
+          onClick={() =>
+            setSubstrate({
+              depthFront: substrate.depthFront,
+              depthBack: substrate.depthBack,
+            })
+          }
+          title="Flatten back to a clean front→back ramp"
+        >
+          Reset
+        </Btn>
+      </div>
+      <p className="mb-3 mt-1.5 text-[10px] leading-snug text-stone/70">
+        Drag on the bed to pile or carve. Soil holds its angle of repose, so
+        steep piles slump like the real thing.
+      </p>
+
       <div className="mb-1 text-[10px] uppercase tracking-wide text-stone">
         Substrate brush
       </div>

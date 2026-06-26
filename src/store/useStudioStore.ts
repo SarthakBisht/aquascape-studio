@@ -4,9 +4,12 @@ import type {
   AquascapeStyle,
   BackgroundConfig,
   Blade,
+  ColorGrade,
+  CustomMesh,
   FishConfig,
   FixtureType,
   GroundPatch,
+  GuideConfig,
   HardscapeItem,
   Layout,
   LightFixture,
@@ -19,6 +22,7 @@ import type {
   Vec3,
   ViewMode,
 } from "@/lib/types";
+import { fieldGrid, makeLinearField, sculptField } from "@/lib/terrain";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { TANK_PRESETS, DEFAULT_TANK_ID } from "@/data/tankPresets";
 import { DEFAULT_BACKGROUND, DEFAULT_AMBIENCE } from "@/data/backgrounds";
@@ -46,6 +50,13 @@ const DEFAULT_SUBSTRATE: SubstrateConfig = {
   type: "aquasoil",
   depthFront: 3,
   depthBack: 7,
+};
+
+const DEFAULT_GRADE: ColorGrade = {
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  hue: 0,
 };
 
 const DEFAULT_LIGHTS: LightFixture[] = [
@@ -100,12 +111,18 @@ interface StudioState {
   ambience: string;
   /** Per-species custom billboard image (speciesId → PNG data URL). */
   customPlantTextures: Record<string, string>;
+  /** Generated hardscape height fields (meshId → height PNG), rebuilt to geometry on load. */
+  customMeshes: Record<string, CustomMesh>;
 
   // ---- persisted view settings ----
   mode: ViewMode;
   quality: Quality;
   showGuides: boolean;
+  /** Which glass pane(s) the composition grid sits on + at what ratio. */
+  guides: GuideConfig;
   growth: number; // 0 = just planted, 1 = fully grown-in
+  /** Global post-process color grade for the whole render. */
+  grade: ColorGrade;
   /** Zen mode dissolves the interface so only the scape remains. Transient. */
   zen: boolean;
 
@@ -127,7 +144,9 @@ interface StudioState {
   transformMode: TransformMode;
   activePlantId: string | null; // species "loaded" for the plant brush
   activeGround: SubstrateType | null; // material "loaded" for the draw brush
-  tool: "select" | "plant" | "ground" | "place";
+  tool: "select" | "plant" | "ground" | "place" | "sculpt";
+  /** Sculpt brush direction: +1 raises soil, -1 carves it. Transient. */
+  sculptDir: 1 | -1;
   placingMaterialId: string | null; // rock armed for ghost placement (transient)
   placingSeed: number; // shape seed shared by ghost + committed rock (transient)
 
@@ -139,9 +158,21 @@ interface StudioState {
   setAmbience: (color: string) => void;
 
   addHardscape: (materialId: string, position?: Vec3, seed?: number) => void;
+  /** Add a non-library piece (driftwood generator / drawn / depth-photo mesh). Returns its id. */
+  addGeneratedHardscape: (
+    partial: Pick<HardscapeItem, "kind" | "source"> &
+      Partial<
+        Pick<
+          HardscapeItem,
+          "materialId" | "drift" | "meshId" | "color" | "textureId" | "scale"
+        >
+      >,
+  ) => string;
   updateHardscape: (id: string, patch: Partial<HardscapeItem>) => void;
   removeHardscape: (id: string) => void;
   duplicateHardscape: (id: string) => void;
+  setCustomMesh: (id: string, data: CustomMesh) => void;
+  clearCustomMesh: (id: string) => void;
   beginPlacing: (materialId: string) => void;
   cancelPlacing: () => void;
 
@@ -150,7 +181,10 @@ interface StudioState {
 
   setActivePlant: (speciesId: string | null) => void;
   setActiveGround: (type: SubstrateType | null) => void;
-  setTool: (tool: "select" | "plant" | "ground" | "place") => void;
+  setTool: (tool: "select" | "plant" | "ground" | "place" | "sculpt") => void;
+  setSculptDir: (dir: 1 | -1) => void;
+  /** Raise (+) / carve (−) the substrate height field under a world point. */
+  sculptSubstrate: (px: number, pz: number) => void;
   setBrush: (patch: Partial<StudioState["brush"]>) => void;
   addPlantPatch: (speciesId: string, position: Vec3, blades?: Blade[]) => void;
   removePlant: (id: string) => void;
@@ -161,7 +195,10 @@ interface StudioState {
   setMode: (mode: ViewMode) => void;
   setQuality: (q: Quality) => void;
   toggleGuides: () => void;
+  setGuides: (patch: Partial<GuideConfig>) => void;
   setGrowth: (v: number) => void;
+  setGrade: (patch: Partial<ColorGrade>) => void;
+  resetGrade: () => void;
   toggleZen: () => void;
   setFish: (patch: Partial<FishConfig>) => void;
 
@@ -192,11 +229,14 @@ export const useStudioStore = create<StudioState>()(
       background: DEFAULT_BACKGROUND,
       ambience: DEFAULT_AMBIENCE,
       customPlantTextures: {},
+      customMeshes: {},
 
       mode: "design",
       quality: "medium",
       showGuides: true,
+      guides: { face: "front", ratio: "both" },
       growth: 0.25,
+      grade: DEFAULT_GRADE,
       zen: false,
 
       fish: { count: 14, size: 1, speed: 1, pattern: "school", palette: "tropical" },
@@ -213,6 +253,7 @@ export const useStudioStore = create<StudioState>()(
       activePlantId: null,
       activeGround: null,
       tool: "select",
+      sculptDir: 1,
       placingMaterialId: null,
       placingSeed: 0,
 
@@ -222,7 +263,17 @@ export const useStudioStore = create<StudioState>()(
       },
       setSubstrate: (patch) => {
         get().pushHistory();
-        set((s) => ({ substrate: { ...s.substrate, ...patch } }));
+        set((s) => {
+          const next = { ...s.substrate, ...patch };
+          // Changing the front/back depth redefines the base slope → reseed the
+          // sculpted field to a clean linear ramp (sculpt detail is intentional
+          // to discard here; that's what "set the slope" means).
+          if (patch.depthFront !== undefined || patch.depthBack !== undefined) {
+            const { nx, nz } = fieldGrid(s.tank.width, s.tank.depth);
+            next.field = makeLinearField(nx, nz, next.depthFront, next.depthBack);
+          }
+          return { substrate: next };
+        });
       },
       setStyle: (style) => {
         get().pushHistory();
@@ -254,6 +305,31 @@ export const useStudioStore = create<StudioState>()(
           tool: s.tool === "place" ? "select" : s.tool,
         }));
       },
+      addGeneratedHardscape: (partial) => {
+        get().pushHistory();
+        const id = genId();
+        const item: HardscapeItem = {
+          id,
+          materialId: partial.materialId ?? "",
+          kind: partial.kind,
+          source: partial.source,
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          scale: partial.scale ?? (partial.kind === "wood" ? 14 : 10),
+          seed: Math.floor(Math.random() * 1e9),
+          drift: partial.drift,
+          meshId: partial.meshId,
+          color: partial.color,
+          textureId: partial.textureId,
+        };
+        set((s) => ({
+          hardscape: [...s.hardscape, item],
+          selectedId: id,
+          placingMaterialId: null,
+          tool: s.tool === "place" ? "select" : s.tool,
+        }));
+        return id;
+      },
       updateHardscape: (id, patch) => {
         get().pushHistory();
         set((s) => ({
@@ -281,6 +357,14 @@ export const useStudioStore = create<StudioState>()(
         };
         set((s) => ({ hardscape: [...s.hardscape, copy], selectedId: copy.id }));
       },
+      setCustomMesh: (id, data) =>
+        set((s) => ({ customMeshes: { ...s.customMeshes, [id]: data } })),
+      clearCustomMesh: (id) =>
+        set((s) => {
+          const next = { ...s.customMeshes };
+          delete next[id];
+          return { customMeshes: next };
+        }),
 
       beginPlacing: (materialId) =>
         set({
@@ -324,6 +408,32 @@ export const useStudioStore = create<StudioState>()(
             : {}),
         }),
       setBrush: (patch) => set((s) => ({ brush: { ...s.brush, ...patch } })),
+      setSculptDir: (dir) => set({ sculptDir: dir }),
+      sculptSubstrate: (px, pz) => {
+        get().pushHistory(); // suppressed mid-stroke (one undo per drag)
+        set((s) => {
+          const { tank, substrate, brush, sculptDir } = s;
+          const innerW = tank.width * 0.98;
+          const innerD = tank.depth * 0.98;
+          const { nx, nz } = fieldGrid(tank.width, tank.depth);
+          const field =
+            substrate.field ??
+            makeLinearField(nx, nz, substrate.depthFront, substrate.depthBack);
+          const strength = Math.max(0.6, brush.radius * 0.18) * sculptDir;
+          const next = sculptField(
+            field,
+            substrate.type,
+            innerW,
+            innerD,
+            px,
+            pz,
+            brush.radius,
+            strength,
+            tank.height * 0.85,
+          );
+          return { substrate: { ...substrate, field: next } };
+        });
+      },
       addPlantPatch: (speciesId, position, blades) => {
         get().pushHistory();
         const { radius, density, scale } = get().brush;
@@ -366,7 +476,10 @@ export const useStudioStore = create<StudioState>()(
       setMode: (mode) => set({ mode, selectedId: null }),
       setQuality: (q) => set({ quality: q }),
       toggleGuides: () => set((s) => ({ showGuides: !s.showGuides })),
+      setGuides: (patch) => set((s) => ({ guides: { ...s.guides, ...patch } })),
       setGrowth: (v) => set({ growth: Math.max(0, Math.min(1, v)) }),
+      setGrade: (patch) => set((s) => ({ grade: { ...s.grade, ...patch } })),
+      resetGrade: () => set({ grade: DEFAULT_GRADE }),
       toggleZen: () => set((s) => ({ zen: !s.zen, selectedId: null })),
       setFish: (patch) => set((s) => ({ fish: { ...s.fish, ...patch } })),
 
@@ -404,13 +517,36 @@ export const useStudioStore = create<StudioState>()(
           plants: layout.plants,
           ground: layout.ground ?? [],
           background: layout.background ?? DEFAULT_BACKGROUND,
+          customMeshes: layout.customMeshes ?? {},
+          // v2 look (each defaults so v1 files still load cleanly)
+          ambience: layout.ambience ?? DEFAULT_AMBIENCE,
+          lights: layout.lights ?? DEFAULT_LIGHTS,
+          fish: layout.fish ?? DEFAULT_FISH,
+          grade: layout.grade ?? DEFAULT_GRADE,
+          growth: layout.growth ?? 0.25,
+          guides: layout.guides ?? { face: "front", ratio: "both" },
+          mode: layout.mode ?? "design",
+          customPlantTextures: layout.customPlantTextures ?? {},
           selectedId: null,
         });
       },
       getLayout: () => {
         const s = get();
+        // Only export the height fields / photos still referenced by a piece.
+        const usedMesh = new Set(
+          s.hardscape.map((h) => h.meshId).filter(Boolean) as string[],
+        );
+        const customMeshes = Object.fromEntries(
+          Object.entries(s.customMeshes).filter(([id]) => usedMesh.has(id)),
+        );
+        const usedPlant = new Set(s.plants.map((p) => p.speciesId));
+        const customPlantTextures = Object.fromEntries(
+          Object.entries(s.customPlantTextures).filter(([id]) =>
+            usedPlant.has(id),
+          ),
+        );
         return {
-          version: 1,
+          version: 2,
           tank: s.tank,
           substrate: s.substrate,
           style: s.style,
@@ -418,6 +554,15 @@ export const useStudioStore = create<StudioState>()(
           plants: s.plants,
           ground: s.ground,
           background: s.background,
+          customMeshes,
+          ambience: s.ambience,
+          lights: s.lights,
+          fish: s.fish,
+          grade: s.grade,
+          growth: s.growth,
+          guides: s.guides,
+          mode: s.mode,
+          customPlantTextures,
         };
       },
       reset: () => {
@@ -500,15 +645,18 @@ export const useStudioStore = create<StudioState>()(
         background: s.background,
         ambience: s.ambience,
         customPlantTextures: s.customPlantTextures,
+        customMeshes: s.customMeshes,
         mode: s.mode,
         quality: s.quality,
         showGuides: s.showGuides,
+        guides: s.guides,
         growth: s.growth,
+        grade: s.grade,
         lights: s.lights,
         fish: s.fish,
         brush: s.brush,
       }),
-      version: 3,
+      version: 6,
       migrate: (persisted: unknown, version: number) => {
         const s = (persisted ?? {}) as Record<string, unknown>;
         if (version < 1) {
@@ -525,6 +673,17 @@ export const useStudioStore = create<StudioState>()(
         }
         if (version < 3) {
           s.ambience = DEFAULT_AMBIENCE;
+        }
+        if (version < 4) {
+          s.grade = DEFAULT_GRADE;
+        }
+        if (version < 5) {
+          if (typeof s.customMeshes !== "object" || s.customMeshes === null) {
+            s.customMeshes = {};
+          }
+        }
+        if (version < 6) {
+          s.guides = { face: "front", ratio: "both" };
         }
         return s as unknown as StudioState;
       },

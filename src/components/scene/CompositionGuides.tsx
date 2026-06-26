@@ -1,59 +1,101 @@
 "use client";
 
 import { Line } from "@react-three/drei";
-import type { TankDimensions } from "@/lib/types";
+import type { TankDimensions, GuideConfig } from "@/lib/types";
 
-// Rule-of-thirds grid + golden-ratio focal markers floating just above the
-// substrate. Helps users seat the main stone like the pros do.
-export function CompositionGuides({ dims }: { dims: TankDimensions }) {
-  const { width: w, depth: d } = dims;
-  const y = 0.4;
+// Front-view composition grids drawn ON the glass — the way aquascapers plan a
+// hardscape: divide the pane by rule-of-thirds and/or the golden ratio and seat
+// the focal stone on an intersection. Drawn on the front pane, back pane, or
+// both (so the rear stones line up too).
+
+const COLOR = "#c2a06a"; // driftwood — quiet, warm guide lines
+const GOLD = "#d9b878"; // focal-point dots
+
+// Fractions across an axis (0..1). Thirds = 1/3, 2/3; golden = 0.382, 0.618.
+const RATIOS = {
+  thirds: [1 / 3, 2 / 3],
+  golden: [0.382, 0.618],
+} as const;
+
+function PaneGrid({
+  w,
+  h,
+  z,
+  fracs,
+}: {
+  w: number;
+  h: number;
+  z: number;
+  fracs: number[];
+}) {
   const hw = w / 2;
-  const hd = d / 2;
-  const color = "#c2a06a"; // driftwood — quiet, warm guide lines
-
-  // thirds
-  const thirdsX = [-w / 6, w / 6];
-  const thirdsZ = [-d / 6, d / 6];
-
-  // golden-ratio intersections (0.382 / 0.618 of each axis, centered)
-  const gx = [(0.382 - 0.5) * w, (0.618 - 0.5) * w];
-  const gz = [(0.382 - 0.5) * d, (0.618 - 0.5) * d];
-  const goldenPoints = gx.flatMap((x) => gz.map((z) => [x, y, z] as const));
-
+  // vertical lines (split width), full tank height
+  const xs = fracs.map((f) => (f - 0.5) * w);
+  // horizontal lines (split height), full tank width
+  const ys = fracs.map((f) => f * h);
   return (
     <group>
-      {thirdsX.map((x, i) => (
+      {xs.map((x, i) => (
         <Line
-          key={`vx${i}`}
+          key={`x${i}`}
           points={[
-            [x, y, -hd],
-            [x, y, hd],
+            [x, 0, z],
+            [x, h, z],
           ]}
-          color={color}
+          color={COLOR}
           lineWidth={1}
           transparent
-          opacity={0.5}
+          opacity={0.45}
         />
       ))}
-      {thirdsZ.map((z, i) => (
+      {ys.map((y, i) => (
         <Line
-          key={`vz${i}`}
+          key={`y${i}`}
           points={[
             [-hw, y, z],
             [hw, y, z],
           ]}
-          color={color}
+          color={COLOR}
           lineWidth={1}
           transparent
-          opacity={0.5}
+          opacity={0.45}
         />
       ))}
-      {goldenPoints.map((p, i) => (
-        <mesh key={`g${i}`} position={[p[0], p[1], p[2]]}>
-          <sphereGeometry args={[Math.max(0.6, w * 0.012), 12, 12]} />
-          <meshBasicMaterial color="#d9b878" />
-        </mesh>
+      {xs.flatMap((x) =>
+        ys.map((y) => (
+          <mesh key={`d${x}_${y}`} position={[x, y, z]}>
+            <sphereGeometry args={[Math.max(0.5, w * 0.01), 10, 10]} />
+            <meshBasicMaterial color={GOLD} transparent opacity={0.85} />
+          </mesh>
+        )),
+      )}
+    </group>
+  );
+}
+
+export function CompositionGuides({
+  dims,
+  config,
+}: {
+  dims: TankDimensions;
+  config: GuideConfig;
+}) {
+  const { width: w, depth: d, height: h } = dims;
+
+  // Sit the grid just inside the glass so it reads as drawn on the pane.
+  const panes: number[] = [];
+  if (config.face === "front" || config.face === "both") panes.push(d / 2 - 0.1);
+  if (config.face === "back" || config.face === "both") panes.push(-d / 2 + 0.1);
+
+  const fracs =
+    config.ratio === "both"
+      ? [...RATIOS.thirds, ...RATIOS.golden]
+      : [...RATIOS[config.ratio]];
+
+  return (
+    <group>
+      {panes.map((z) => (
+        <PaneGrid key={z} w={w} h={h} z={z} fracs={fracs} />
       ))}
     </group>
   );

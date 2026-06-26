@@ -9,9 +9,11 @@ import { TankScene } from "./scene/TankScene";
 import { Toolbar } from "./ui/Toolbar";
 import { TankPanel } from "./ui/TankPanel";
 import { HardscapePalette } from "./ui/HardscapePalette";
+import { HardscapeEditPanel } from "./ui/HardscapeEditPanel";
 import { DrawPanel } from "./ui/DrawPanel";
 import { BackgroundPanel } from "./ui/BackgroundPanel";
 import { LightPanel } from "./ui/LightPanel";
+import { GradePanel } from "./ui/GradePanel";
 import { PlantBrowser } from "./ui/PlantBrowser";
 import { FishPanel } from "./ui/FishPanel";
 import { SelectionBar } from "./ui/SelectionBar";
@@ -131,9 +133,11 @@ export function Studio() {
           <div className="calm-scroll flex w-64 flex-col gap-3 overflow-y-auto pr-0.5">
             <TankPanel />
             <HardscapePalette />
+            <HardscapeEditPanel />
             <DrawPanel />
             <BackgroundPanel />
             <LightPanel />
+            <GradePanel />
           </div>
           <div className="flex-1" />
           <div className="flex max-h-full w-64 flex-col">

@@ -10,14 +10,36 @@ design a hardscape + planting layout, orbit around it from any angle, then
 ## Features
 
 - **Tank** — preset sizes (Nano, ADA 60-P/90-P/120-P, Shallow) or custom W×D×H,
-  with a sloped substrate (aquasoil / sand / gravel).
+  with a **sculptable substrate** (aquasoil / sand / gravel): set the base
+  front/back slope, then raise/carve free-form hills, valleys and terraces with
+  the Sculpt brush — soil slumps to its angle of repose, so steep piles settle
+  like the real thing.
 - **Hardscape** — procedurally generated rocks grounded in real aquascaping
   stones (Seiryu, Dragon/Ohko, Lava, Frodo, Elephant Skin, Pagoda, Petrified
-  Wood — each with a distinct shape + surface: veins, strata, mottling) and
-  driftwood (Spider Wood, Manzanita). Pick a stone and a **ghost preview follows
+  Wood). Each ships **textured by default** — angular, eroded geometry (ridged 3D
+  noise → sharp crests + cavities, with per-seed shape variety so no two are
+  alike) wrapped in a seamless **PBR surface** (domain-warped grain, crevice
+  shading, per-piece colour/sample jitter) — plus driftwood (Spider Wood,
+  Manzanita). Pick a stone and a **ghost preview follows
   your cursor** — click to place it anywhere (inside the tank or outside), then
   **move / rotate / scale**, stack, duplicate, **regenerate** (new random shape),
   and delete. Data-driven, so new materials are a one-line addition.
+- **Customize each piece (3D)** — select any rock/wood and open the **Customize**
+  panel: tint its **color**, apply a realistic **PBR surface** (Seiryu, Granite,
+  Slate, Lava, Sandstone, Driftwood Bark, Weathered Wood — seamless procedural
+  albedo + normal + roughness, projected **triplanar** so it tiles cleanly on any
+  shape), set **roughness**, and **sculpt the shape** with sliders (width / height
+  / depth stretch, jaggedness, detail, layered strata, vein color).
+- **Make your own hardscape** — four ways, all client-side:
+  - **Driftwood generator** — one click spawns a unique **branchy** piece
+    (recursive tapered limbs); tune branches / length / gnarl / taper / splits /
+    thickness, or Regenerate for a new one.
+  - **Draw → 3D** — sketch a silhouette on a 2D canvas (brush / erase / mirror);
+    it's **inflated into a rounded 3D piece** you can orbit, texture, and place.
+  - **Photo → 3D** — drop a driftwood/rock photo; an **in-browser AI** removes the
+    background and estimates **monocular depth** (Depth-Anything v2) to build a real
+    3D mesh of the piece. First use downloads a small model.
+  - Generated pieces persist as tiny grayscale height maps and rebuild on load.
 - **Light rig** — build the lighting above the tank in the **Light** panel:
   **add / remove fixtures** (Flood · Spot · RGB), each with its own intensity,
   **warmth** (color temperature) or RGB color, **X/Z position**, and on/off.
@@ -42,9 +64,12 @@ design a hardscape + planting layout, orbit around it from any angle, then
   highlighted.
 - **Draw tool** — a freehand pen: pick a plant or a substrate material (sand /
   gravel / soil) and **drag** on the tank to paint. Plants seat on the surface
-  slope; material draws as level patches. Orbit pauses while you draw.
-- **Composition help** — rule-of-thirds grid + golden-ratio markers, and
-  Iwagumi / Nature / Dutch style hints.
+  slope; material draws as level patches. Or **Sculpt slope** (Raise / Carve) to
+  push the substrate into hills and valleys that slump like real soil. Orbit
+  pauses while you draw.
+- **Composition help** — a rule-of-thirds / golden-ratio grid drawn on the front,
+  back, or both glass panes (choose pane + ratio), and Iwagumi / Nature / Dutch
+  style hints.
 - **Underwater mode** — flood the tank with **subtle, near-transparent water**
   (only the tank) whose look follows your **light rig**: each fixture casts a
   **god-ray shaft** from its real position (tight & bright for a spot, broad for
@@ -55,6 +80,8 @@ design a hardscape + planting layout, orbit around it from any angle, then
   school / calm / dart / scatter — and speed) that flock and turn smoothly off
   the glass; plants sway.
 - **Camera** — orbit / zoom / pan around the tank.
+- **Color grade** — global **brightness / contrast / saturation / tint** over the
+  whole render (post-process, so screenshots keep the look). Reset to neutral.
 - **Quality slider**, a **growth slider** (just-planted → fully grown-in,
   scaling plant height *and* fullness), **PNG screenshot**, and
   **export / import** layouts as portable `.aquascape.json` files. Your work
@@ -63,7 +90,9 @@ design a hardscape + planting layout, orbit around it from any angle, then
 ## Stack
 
 Next.js 16 · React 19 · TypeScript (strict) · Tailwind v4 · React Three Fiber +
-drei + three.js · zustand. No backend — everything runs in the browser.
+drei + three.js · zustand · `@imgly/background-removal` + `@huggingface/transformers`
+(transformers.js, lazy-loaded for in-browser depth). No backend — everything runs
+in the browser.
 
 ## Run
 
@@ -76,17 +105,23 @@ pnpm dev        # http://localhost:3000
 pnpm build      # production build (also type-checks)
 ```
 
-> **pnpm 11 note:** build-script approvals for `sharp` / `unrs-resolver` live in
-> `pnpm-workspace.yaml` (`allowBuilds`). Without them `pnpm install` aborts.
+> **pnpm 11 note:** build-script approvals live in `pnpm-workspace.yaml`
+> (`allowBuilds`): `sharp` / `unrs-resolver` are enabled; `onnxruntime-node`
+> (pulled by transformers.js, Node-only) is set `false` — we use the browser WASM
+> path. Without these entries `pnpm install` aborts.
 
 ## How to use
 
 1. Pick a tank size (or set custom dimensions) and a substrate in the **Tank**
-   panel. Optionally choose a **style** for composition hints.
-2. Toggle **Guides** on and place rocks/wood from the **Hardscape** panel: pick a
-   stone, move the cursor to position the **ghost preview**, and click to drop it;
-   then click a piece to **Move / Rotate / Scale / Regenerate** it. Build up and
-   stack. Tune the overhead **Light** panel to taste.
+   panel (set the front/back slope here). In the **Draw** panel, use **Sculpt
+   slope → Raise / Carve** to shape hills and valleys; soil slumps naturally.
+   Optionally choose a **style** for composition hints.
+2. Place rocks/wood from the **Hardscape** panel: pick a stone, position the
+   **ghost preview**, and click to drop it; or **Create your own** — generate
+   **Driftwood**, **Draw → 3D**, or **Photo → 3D**. Click a piece to **Move /
+   Rotate / Scale / Regenerate** it, and use the **Customize** panel to set its
+   color, **surface texture**, and **sculpt** its shape. Build up and stack; tune
+   the overhead **Light** panel to taste.
 3. In the **Plants** panel, filter and pick a species, then click on the
    substrate to fill an area with it.
 4. Flip to **Underwater** in the toolbar to flood the tank and watch the fish.
@@ -100,14 +135,17 @@ src/
   components/
     Studio.tsx         Canvas host + UI overlay (client, mounted-gated)
     scene/             TankScene, GlassTank, Substrate, Lighting, LightFixtures,
-                       Hardscape, PlacementGhost, Plants, Water, Fish,
-                       CompositionGuides
-    ui/                Toolbar, TankPanel, HardscapePalette, LightPanel,
-                       DrawPanel, BackgroundPanel, PlantBrowser, SelectionBar,
-                       primitives
+                       Hardscape, TriplanarMaterial, PlacementGhost, Plants,
+                       Water, Fish, CompositionGuides
+    ui/                Toolbar, TankPanel, HardscapePalette, HardscapeEditPanel,
+                       DrawShapeModal, PhotoTo3DModal, LightPanel, DrawPanel,
+                       BackgroundPanel, PlantBrowser, SelectionBar, primitives
   store/useStudioStore.ts   single zustand store (persisted)
-  data/                tankPresets, hardscapeMaterials, plants, stylePresets
-  lib/                 types, units, proceduralRock, persistence
+  data/                tankPresets, hardscapeMaterials, hardscapeTextures,
+                       plants, stylePresets
+  lib/                 types, units, proceduralRock, driftwood, inflate,
+                       heightfieldMesh, hardscapeTextureGen, depthFromImage,
+                       persistence
 public/ASSETS.md       where to drop CC0 models/textures/HDRIs
 ```
 

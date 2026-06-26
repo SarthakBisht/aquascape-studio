@@ -6,3 +6,6 @@ allowBuilds:
   unrs-resolver: true
   esbuild: true
   protobufjs: true
+  # transformers.js pulls onnxruntime-node (optional, Node-only). We use the
+  # browser WASM path (onnxruntime-web), so skip its native postinstall.
+  onnxruntime-node: false

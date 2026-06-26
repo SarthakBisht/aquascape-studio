@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { exportLayoutFile, importLayoutFile } from "@/lib/persistence";
 import { Btn } from "./primitives";
-import type { Quality } from "@/lib/types";
+import type { Quality, GuideFace, GuideRatio } from "@/lib/types";
 
 const QUALITIES: Quality[] = ["low", "medium", "high"];
 
@@ -17,6 +17,8 @@ export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
   const canRedo = useStudioStore((s) => s.future.length > 0);
   const showGuides = useStudioStore((s) => s.showGuides);
   const toggleGuides = useStudioStore((s) => s.toggleGuides);
+  const guides = useStudioStore((s) => s.guides);
+  const setGuides = useStudioStore((s) => s.setGuides);
   const growth = useStudioStore((s) => s.growth);
   const setGrowth = useStudioStore((s) => s.setGrowth);
   const quality = useStudioStore((s) => s.quality);
@@ -88,6 +90,30 @@ export function Toolbar({ onScreenshot }: { onScreenshot: () => void }) {
         <Btn active={showGuides} onClick={toggleGuides} title="Composition guides">
           Guides
         </Btn>
+        {showGuides && (
+          <>
+            <select
+              value={guides.face}
+              onChange={(e) => setGuides({ face: e.target.value as GuideFace })}
+              title="Which glass the grid sits on"
+              className="rounded-md border border-mist/10 bg-mist/[0.06] px-1.5 py-1 text-xs capitalize text-mist"
+            >
+              <option value="front" className="bg-soil">Front</option>
+              <option value="back" className="bg-soil">Back</option>
+              <option value="both" className="bg-soil">Both</option>
+            </select>
+            <select
+              value={guides.ratio}
+              onChange={(e) => setGuides({ ratio: e.target.value as GuideRatio })}
+              title="Composition ratio"
+              className="rounded-md border border-mist/10 bg-mist/[0.06] px-1.5 py-1 text-xs text-mist"
+            >
+              <option value="thirds" className="bg-soil">Thirds</option>
+              <option value="golden" className="bg-soil">Golden</option>
+              <option value="both" className="bg-soil">Both</option>
+            </select>
+          </>
+        )}
         <label
           className="flex items-center gap-1.5 text-[11px] font-light text-stone"
           title="How grown-in the plants look"

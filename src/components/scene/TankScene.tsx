@@ -17,6 +17,7 @@ import { Caustics } from "./Caustics";
 import { Bubbles } from "./Bubbles";
 import { Fish } from "./Fish";
 import { CompositionGuides } from "./CompositionGuides";
+import { ColorGrade } from "./ColorGrade";
 
 export function TankScene() {
   const tank = useStudioStore((s) => s.tank);
@@ -24,6 +25,7 @@ export function TankScene() {
   const background = useStudioStore((s) => s.background);
   const mode = useStudioStore((s) => s.mode);
   const showGuides = useStudioStore((s) => s.showGuides);
+  const guides = useStudioStore((s) => s.guides);
   const tool = useStudioStore((s) => s.tool);
 
   const underwater = mode === "underwater";
@@ -51,7 +53,11 @@ export function TankScene() {
       {underwater && <Bubbles dims={tank} substrate={substrate} />}
       {underwater && <Fish dims={tank} substrate={substrate} />}
       <GlassTank dims={tank} />
-      {showGuides && mode === "design" && <CompositionGuides dims={tank} />}
+      {showGuides && mode === "design" && (
+        <CompositionGuides dims={tank} config={guides} />
+      )}
+
+      <ColorGrade />
 
       {/* Disable orbit while a brush is active so dragging draws, not rotates. */}
       <OrbitControls

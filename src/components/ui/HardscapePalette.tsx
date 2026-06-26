@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { HARDSCAPE_MATERIALS } from "@/data/hardscapeMaterials";
+import { DEFAULT_DRIFT } from "@/lib/driftwood";
+import { DrawShapeModal } from "./DrawShapeModal";
+import { PhotoTo3DModal } from "./PhotoTo3DModal";
 import { Panel, Btn, Swatch } from "./primitives";
 import type { HardscapeKind } from "@/lib/types";
 
@@ -38,10 +42,43 @@ function Group({ kind, title }: { kind: HardscapeKind; title: string }) {
 export function HardscapePalette() {
   const tool = useStudioStore((s) => s.tool);
   const cancelPlacing = useStudioStore((s) => s.cancelPlacing);
+  const addGenerated = useStudioStore((s) => s.addGeneratedHardscape);
+  const [drawOpen, setDrawOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   return (
     <Panel title="Hardscape">
       <Group kind="rock" title="Rocks" />
       <Group kind="wood" title="Driftwood" />
+
+      <div className="mb-1 mt-2 text-[10px] uppercase tracking-wide text-stone">
+        Create your own
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Btn
+          onClick={() =>
+            addGenerated({
+              kind: "wood",
+              source: "drift",
+              materialId: "spiderwood",
+              textureId: "driftbark",
+              drift: { ...DEFAULT_DRIFT },
+            })
+          }
+        >
+          🌿 Driftwood
+        </Btn>
+        <Btn onClick={() => setDrawOpen(true)}>✏️ Draw → 3D</Btn>
+        <Btn onClick={() => setPhotoOpen(true)} className="col-span-2">
+          🖼 Photo → 3D
+        </Btn>
+      </div>
+      <DrawShapeModal open={drawOpen} onClose={() => setDrawOpen(false)} />
+      <PhotoTo3DModal open={photoOpen} onClose={() => setPhotoOpen(false)} />
+      <p className="mt-1.5 text-[10px] leading-snug text-stone/70">
+        Generates a unique branchy piece — select it to tune branches, gnarl &
+        surface, then Regenerate for a new one.
+      </p>
+
       {tool === "place" ? (
         <button
           onClick={() => cancelPlacing()}
