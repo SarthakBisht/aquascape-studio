@@ -16,7 +16,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [2, 4],
     color: "#5fae45",
-    texture: "/plants/monte-carlo.png",
+    texture: "/plants/monte-carlo.webp",
   },
   {
     id: "dwarf-hairgrass",
@@ -30,7 +30,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [4, 10],
     color: "#6fbf3b",
-    texture: "/plants/dwarf-hairgrass.png",
+    texture: "/plants/dwarf-hairgrass.webp",
   },
   {
     id: "cryptocoryne-wendtii",
@@ -44,7 +44,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: false,
     heightCm: [10, 20],
     color: "#4a7d3a",
-    texture: "/plants/cryptocoryne-wendtii.png",
+    texture: "/plants/cryptocoryne-wendtii.webp",
   },
   {
     id: "rotala-rotundifolia",
@@ -138,7 +138,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [3, 10],
     color: "#4e9a3a",
-    texture: "/plants/staurogyne-repens.png",
+    texture: "/plants/staurogyne-repens.webp",
   },
   {
     id: "hc-cuba",
@@ -152,7 +152,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [1, 3],
     color: "#6fbf4a",
-    texture: "/plants/hc-cuba.png",
+    texture: "/plants/hc-cuba.webp",
   },
   {
     id: "eleocharis-mini",
@@ -166,7 +166,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [2, 6],
     color: "#6fbf3b",
-    texture: "/plants/eleocharis-mini.png",
+    texture: "/plants/eleocharis-mini.webp",
   },
   {
     id: "marsilea-hirsuta",
@@ -180,7 +180,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: false,
     heightCm: [2, 8],
     color: "#5a9a40",
-    texture: "/plants/marsilea-hirsuta.png",
+    texture: "/plants/marsilea-hirsuta.webp",
   },
   {
     id: "lilaeopsis",
@@ -194,7 +194,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [3, 7],
     color: "#5fa83f",
-    texture: "/plants/lilaeopsis.png",
+    texture: "/plants/lilaeopsis.webp",
   },
   {
     id: "glossostigma",
@@ -208,7 +208,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [1, 4],
     color: "#74c24a",
-    texture: "/plants/glossostigma.png",
+    texture: "/plants/glossostigma.webp",
   },
 
   // ── Midground ─────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [5, 10],
     color: "#6ab04a",
-    texture: "/plants/pogostemon-helferi.png",
+    texture: "/plants/pogostemon-helferi.webp",
   },
   {
     id: "cryptocoryne-parva",
@@ -238,7 +238,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: false,
     heightCm: [3, 8],
     color: "#4a7d3a",
-    texture: "/plants/cryptocoryne-parva.png",
+    texture: "/plants/cryptocoryne-parva.webp",
   },
   {
     id: "cryptocoryne-lutea",
@@ -252,7 +252,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: false,
     heightCm: [8, 15],
     color: "#4f7a35",
-    texture: "/plants/cryptocoryne-lutea.png",
+    texture: "/plants/cryptocoryne-lutea.webp",
   },
   {
     id: "dwarf-sagittaria",
@@ -266,7 +266,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: false,
     heightCm: [8, 20],
     color: "#5aa040",
-    texture: "/plants/dwarf-sagittaria.png",
+    texture: "/plants/dwarf-sagittaria.webp",
   },
   {
     id: "helanthium-tenellum",
@@ -280,7 +280,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: false,
     heightCm: [5, 12],
     color: "#5b9a3e",
-    texture: "/plants/helanthium-tenellum.png",
+    texture: "/plants/helanthium-tenellum.webp",
   },
   {
     id: "bacopa-monnieri",
@@ -294,7 +294,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: false,
     heightCm: [10, 30],
     color: "#6aa05a",
-    texture: "/plants/bacopa-monnieri.png",
+    texture: "/plants/bacopa-monnieri.webp",
   },
   {
     id: "alternanthera-reineckii",
@@ -308,7 +308,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [10, 25],
     color: "#9a3a5a",
-    texture: "/plants/alternanthera-reineckii.png",
+    texture: "/plants/alternanthera-reineckii.webp",
   },
   {
     id: "proserpinaca",
@@ -322,7 +322,7 @@ export const PLANT_SPECIES: PlantSpecies[] = [
     co2: true,
     heightCm: [10, 25],
     color: "#9a8a4a",
-    texture: "/plants/proserpinaca.png",
+    texture: "/plants/proserpinaca.webp",
   },
 
   // ── Background ────────────────────────────────────────────────────────

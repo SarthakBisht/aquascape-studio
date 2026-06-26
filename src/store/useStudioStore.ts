@@ -1,5 +1,10 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import {
+  persist,
+  createJSONStorage,
+  type PersistStorage,
+  type StorageValue,
+} from "zustand/middleware";
 import type {
   AquascapeStyle,
   BackgroundConfig,
@@ -37,6 +42,47 @@ const noopStorage = {
   setItem: () => {},
   removeItem: () => {},
 };
+
+// Debounced persist storage. zustand's persist writes on EVERY set(), and our
+// layout is large (base64 customMeshes/customPlantTextures). Editor gestures —
+// transform drag (~60Hz), paint/sculpt strokes, sliders — would otherwise
+// JSON.stringify the whole layout + hit localStorage dozens of times/sec on the
+// main thread. Wrapping above createJSONStorage defers BOTH the stringify and
+// the write to the trailing edge, so one write happens ~400ms after edits stop.
+// Flushes on tab hide/close so an in-flight change isn't lost.
+// ponytail: worst case on a hard kill is losing <400ms of edits (undo history is
+// in-memory and unaffected). Per-caller throttling would be more code for less.
+function debouncedPersistStorage<S>(ms = 400): PersistStorage<S> | undefined {
+  if (typeof window === "undefined") {
+    return createJSONStorage<S>(() => noopStorage);
+  }
+  const base = createJSONStorage<S>(() => window.localStorage)!;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let pending: { name: string; value: StorageValue<S> } | null = null;
+  const flush = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    if (pending) {
+      base.setItem(pending.name, pending.value);
+      pending = null;
+    }
+  };
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flush();
+  });
+  return {
+    getItem: (name) => base.getItem(name),
+    removeItem: (name) => base.removeItem(name),
+    setItem: (name, value) => {
+      pending = { name, value };
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(flush, ms);
+    },
+  };
+}
 
 const genId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
@@ -768,9 +814,7 @@ export const useStudioStore = create<StudioState>()(
     }),
     {
       name: "aquascape-studio:layout",
-      storage: createJSONStorage(() =>
-        typeof window !== "undefined" ? window.localStorage : noopStorage,
-      ),
+      storage: debouncedPersistStorage(),
       // Persist scene data + view settings, never transient editor state.
       partialize: (s) => ({
         tank: s.tank,

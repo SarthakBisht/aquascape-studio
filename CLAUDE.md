@@ -331,10 +331,25 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
 - **SSR / WebGL:** `<Studio>` returns a loader until `mounted` (client) so WebGL
   never runs on the server and persisted state can't cause hydration mismatch.
   The zustand store uses a `noopStorage` fallback when `window` is undefined.
+- **Persist is debounced (perf):** `useStudioStore`'s `storage` is
+  `debouncedPersistStorage()` (not raw `createJSONStorage`) — it defers BOTH the
+  `JSON.stringify(layout)` and the `localStorage.setItem` to a ~400ms trailing
+  edge. Editor gestures (transform drag ~60Hz, paint/sculpt strokes, sliders)
+  each call `set()`, and the layout carries base64 `customMeshes`/
+  `customPlantTextures`, so writing per-`set` melted the main thread. Flushes on
+  `pagehide` + `visibilitychange`→hidden so a tab close mid-window isn't lost
+  (worst case <400ms of edits; in-memory undo history is unaffected).
 - **Screenshots** require `gl={{ preserveDrawingBuffer: true }}` on `<Canvas>`.
 - **Bundle assets locally** (see `public/ASSETS.md`) — third-party image hosts
   lack CORS headers and WebGL will reject the texture. Procedural/placeholder
   fallbacks exist for everything today.
+- **Plant cutouts are served as WebP (perf):** `public/plants/*.webp` (≤768px,
+  ~1 MB total) — they double as 3D billboard textures AND the plant-browser
+  thumbnails, so the served files must stay small. High-res PNG **sources** live
+  in `assets/plants-src/` (in git, **not** served/deployed). Add/refresh a cutout:
+  drop `<id>.png` there → `node scripts/encode-plants.mjs` (sharp resize→WebP q82)
+  → reference `/plants/<id>.webp` in `src/data/plants.ts`. The browser `<img>` thumb
+  is `loading="lazy"`. (Was ~18 MB of raw PNG fetched on first plant-panel open.)
 
 ## Scope
 **In (current MVP):** tank presets + custom dims, **sculptable substrate**

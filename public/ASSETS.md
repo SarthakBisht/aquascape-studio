@@ -30,6 +30,14 @@ That's the whole upgrade — `usePlantTexture` swaps the procedural texture for
 the image automatically. Good cutouts: front-on, single plant/tuft, alpha
 edges, ~512–1024px tall, leaves filling most of the frame.
 
+**Served format is WebP.** Bundled cutouts in `public/plants/` are optimized
+**WebP** (≤768px, alpha) — ~1 MB total for all species vs ~18 MB as raw PNG, and
+they double as the plant-browser thumbnails, so the full files shouldn't be
+multi-MB. High-res PNG **sources** live in `assets/plants-src/` (in git, **not**
+served/deployed). To add or refresh a cutout: drop the `<id>.png` source there,
+run `node scripts/encode-plants.mjs` (sharp resize ≤768px → WebP q82 into
+`public/plants/`), and reference `/plants/<id>.webp` in `plants.ts`.
+
 ### Got raw photos (with a background)? Use the `/cutout` tool
 
 You don't have to pre-cut anything. Name each raw photo after its **species id**
