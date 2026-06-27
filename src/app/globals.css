@@ -11,12 +11,15 @@
   --color-sumi: #0f110d; /* dim gallery ground */
   --color-soil: #1a1c15; /* aquasoil — panel surfaces */
   --color-soil-2: #24271d; /* raised surface */
+  --color-soil-3: #2e3226; /* rail / active control surface */
+  --color-line: #2a2d22; /* hairline border (baked mist/~10%) */
   --color-stone: #9a9d8f; /* seiryu grey-green — labels */
   --color-moss: #97b06f; /* calm primary accent */
   --color-moss-bright: #b8cf90;
   --color-driftwood: #c2a06a; /* warm light / wood */
   --color-mist: #e8e5d9; /* warm paper — primary text */
   --color-water: #5e8c88; /* muted depth */
+  --color-aqua: #6fb6ad; /* selection / focus accent — between water & moss */
 
   --font-sans: var(--font-zen-kaku);
   --font-display: var(--font-zen-mincho);
@@ -46,6 +49,13 @@ body {
 canvas {
   outline: none;
   touch-action: none;
+}
+
+/* Keyboard-only focus ring. Mouse clicks stay clean; Tab navigation is visible.
+   Components can opt into a tighter ring via focus-visible:ring-* utilities. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-moss) 70%, transparent);
+  outline-offset: 2px;
 }
 
 /* The scape is lit like an exhibit: a warm bloom in the middle, dark at the
@@ -98,5 +108,22 @@ canvas {
 @media (prefers-reduced-motion: reduce) {
   .gallery-glow {
     animation: none;
+  }
+}
+
+/* Touch devices get comfortable ~44px tap targets; desktop (fine pointer)
+   keeps its tight spacing. Applies to every Btn/IconTab/Disclosure/Select
+   without per-component edits. */
+@media (pointer: coarse) {
+  button,
+  [role="tab"],
+  summary,
+  select,
+  input[type="range"] {
+    min-height: 40px;
+  }
+  button,
+  summary {
+    padding-block: 0.4rem;
   }
 }

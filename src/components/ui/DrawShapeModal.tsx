@@ -182,7 +182,7 @@ export function DrawShapeModal({
 
   return (
     <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-sumi/70 backdrop-blur-sm">
-      <div className="w-[360px] rounded-xl border border-mist/10 bg-soil/95 p-4 text-mist shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]">
+      <div className="w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-mist/10 bg-soil/95 p-4 text-mist shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-sm text-moss">Draw a shape → 3D</h2>
           <button

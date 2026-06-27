@@ -180,8 +180,17 @@ pnpm build      # production build (also type-checks)
 
 ## How to use
 
+Tools live in a **left icon rail** — click a tab to open one section at a time
+(Tank · Hardscape · Plants · Terrain · Scene · Fish); no scrolling to hunt for a
+setting. Selecting a piece jumps to **Hardscape** (Customize); flooding the tank
+jumps to **Fish**. Display options (Zen, guides, growth, quality) and file
+actions (capture, export/import, reset) sit under the toolbar's **View** and
+**⋯ More** menus. The layout is fluid down to tablet/small-laptop widths
+(~768px); on a phone, open it in **landscape** or on a desktop to design — a
+notice points you to the gallery, which browses fine on any screen.
+
 1. Pick a tank size (or set custom dimensions) and a substrate in the **Tank**
-   panel (set the front/back slope here). In the **Draw** panel, use **Sculpt
+   tab (set the front/back slope here). In the **Terrain** tab, use **Sculpt
    slope → Raise / Carve** to shape hills and valleys; soil slumps naturally.
    Optionally choose a **style** for composition hints.
 2. Place rocks/wood from the **Hardscape** panel: pick a stone, position the
@@ -210,9 +219,10 @@ src/
                        (tweezers/scissors cursors), Plants,
                        Water, Fish, CompositionGuides, LiveTank (gallery tile)
                        + Showroom3D (navigable 3D gallery room)
-    ui/                Toolbar, TankPanel, HardscapePalette, HardscapeEditPanel,
-                       DrawShapeModal, PhotoTo3DModal, LightPanel, DrawPanel,
-                       BackgroundPanel, PlantBrowser, SelectionBar, Gallery,
+    ui/                Toolbar, LeftRail (icon-tab nav), TankPanel,
+                       HardscapePalette, HardscapeEditPanel, DrawShapeModal,
+                       PhotoTo3DModal, LightPanel, DrawPanel, BackgroundPanel,
+                       PlantBrowser, FishPanel, SelectionBar, Gallery,
                        CalculatorOverlay, primitives
   store/useStudioStore.ts   editor state — single zustand store (persisted)
   store/useLibraryStore.ts  saved-scape gallery (separate persisted store)

@@ -5,7 +5,7 @@ import { useStudioStore } from "@/store/useStudioStore";
 import { useLibraryStore } from "@/store/useLibraryStore";
 import { exportLayoutFile, importLayoutFile } from "@/lib/persistence";
 import { growthLimit } from "@/lib/units";
-import { Btn } from "./primitives";
+import { Btn, Disclosure, Select, Slider } from "./primitives";
 import type { Quality, GuideFace, GuideRatio } from "@/lib/types";
 
 const QUALITIES: Quality[] = ["low", "medium", "high"];
@@ -60,7 +60,7 @@ export function Toolbar({
   };
 
   return (
-    <header className="pointer-events-auto flex items-center gap-4 rounded-lg border border-mist/10 bg-soil/65 px-4 py-2.5 text-mist shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md">
+    <header className="pointer-events-auto flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-mist/10 bg-soil/65 px-4 py-2.5 text-mist shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md">
       {/* wordmark */}
       <div className="flex items-center gap-2.5">
         <span
@@ -105,80 +105,6 @@ export function Toolbar({
       </Btn>
 
       <div className="ml-auto flex items-center gap-2">
-        <Btn active={zen} onClick={toggleZen} title="Hide the interface and just breathe">
-          ☾ Zen
-        </Btn>
-
-        <span className="mx-0.5 h-5 w-px bg-mist/10" />
-
-        <Btn
-          active={!showPlants}
-          onClick={togglePlants}
-          title="Hide plants to view the hardscape alone"
-        >
-          {showPlants ? "Hide plants" : "Show plants"}
-        </Btn>
-
-        <Btn active={showGuides} onClick={toggleGuides} title="Composition guides">
-          Guides
-        </Btn>
-        {showGuides && (
-          <>
-            <select
-              value={guides.face}
-              onChange={(e) => setGuides({ face: e.target.value as GuideFace })}
-              title="Which glass the grid sits on"
-              className="rounded-md border border-mist/10 bg-mist/[0.06] px-1.5 py-1 text-xs capitalize text-mist"
-            >
-              <option value="front" className="bg-soil">Front</option>
-              <option value="back" className="bg-soil">Back</option>
-              <option value="both" className="bg-soil">Both</option>
-            </select>
-            <select
-              value={guides.ratio}
-              onChange={(e) => setGuides({ ratio: e.target.value as GuideRatio })}
-              title="Composition ratio"
-              className="rounded-md border border-mist/10 bg-mist/[0.06] px-1.5 py-1 text-xs text-mist"
-            >
-              <option value="thirds" className="bg-soil">Thirds</option>
-              <option value="golden" className="bg-soil">Golden</option>
-              <option value="both" className="bg-soil">Both</option>
-            </select>
-          </>
-        )}
-        <label
-          className="flex items-center gap-1.5 text-[11px] font-light text-stone"
-          title="How grown-in the plants look"
-        >
-          Growth
-          <input
-            type="range"
-            min={0}
-            max={maxGrowth}
-            step={0.01}
-            value={Math.min(growth, maxGrowth)}
-            onChange={(e) => setGrowth(Number(e.target.value))}
-            className="h-1 w-20 cursor-pointer accent-moss"
-          />
-        </label>
-
-        <label className="flex items-center gap-1.5 text-[11px] font-light text-stone">
-          Quality
-          <select
-            value={quality}
-            onChange={(e) => setQuality(e.target.value as Quality)}
-            className="rounded-md border border-mist/10 bg-mist/[0.06] px-1.5 py-1 text-xs capitalize text-mist"
-          >
-            {QUALITIES.map((q) => (
-              <option key={q} value={q} className="bg-soil">
-                {q}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <span className="mx-0.5 h-5 w-px bg-mist/10" />
-
         <Btn onClick={onSaveScape} title="Save this scape to your gallery">
           ✓ Save
         </Btn>
@@ -194,14 +120,97 @@ export function Toolbar({
 
         <span className="mx-0.5 h-5 w-px bg-mist/10" />
 
-        <Btn onClick={onScreenshot} title="Save a picture">
-          Capture
-        </Btn>
-        <Btn onClick={() => exportLayoutFile(getLayout())}>Export</Btn>
-        <Btn onClick={() => fileRef.current?.click()}>Import</Btn>
-        <Btn onClick={() => confirm("Clear the whole scape?") && reset()}>
-          Reset
-        </Btn>
+        {/* View / display settings */}
+        <Disclosure summary="View ▾">
+          <label className="flex items-center justify-between gap-4 text-[11px] text-stone">
+            ☾ Zen mode
+            <Btn
+              active={zen}
+              onClick={toggleZen}
+              title="Hide the interface and just breathe"
+            >
+              {zen ? "On" : "Off"}
+            </Btn>
+          </label>
+          <label className="flex items-center justify-between gap-4 text-[11px] text-stone">
+            Plants
+            <Btn
+              active={!showPlants}
+              onClick={togglePlants}
+              title="Hide plants to view the hardscape alone"
+            >
+              {showPlants ? "Visible" : "Hidden"}
+            </Btn>
+          </label>
+          <label className="flex items-center justify-between gap-4 text-[11px] text-stone">
+            Guides
+            <Btn active={showGuides} onClick={toggleGuides}>
+              {showGuides ? "On" : "Off"}
+            </Btn>
+          </label>
+          {showGuides && (
+            <div className="flex gap-2">
+              <Select
+                value={guides.face}
+                onChange={(e) => setGuides({ face: e.target.value as GuideFace })}
+                aria-label="Which glass the grid sits on"
+                className="flex-1 capitalize"
+              >
+                <option value="front">Front</option>
+                <option value="back">Back</option>
+                <option value="both">Both</option>
+              </Select>
+              <Select
+                value={guides.ratio}
+                onChange={(e) =>
+                  setGuides({ ratio: e.target.value as GuideRatio })
+                }
+                aria-label="Composition ratio"
+                className="flex-1 capitalize"
+              >
+                <option value="thirds">Thirds</option>
+                <option value="golden">Golden</option>
+                <option value="both">Both</option>
+              </Select>
+            </div>
+          )}
+          <Slider
+            label="Growth"
+            value={Math.min(growth, maxGrowth)}
+            min={0}
+            max={maxGrowth}
+            step={0.01}
+            onChange={setGrowth}
+            format={(v) => `${Math.round((v / (maxGrowth || 1)) * 100)}%`}
+          />
+          <label className="flex items-center justify-between gap-4 text-[11px] text-stone">
+            Quality
+            <Select
+              value={quality}
+              onChange={(e) => setQuality(e.target.value as Quality)}
+              aria-label="Render quality"
+              className="capitalize"
+            >
+              {QUALITIES.map((q) => (
+                <option key={q} value={q}>
+                  {q}
+                </option>
+              ))}
+            </Select>
+          </label>
+        </Disclosure>
+
+        {/* Secondary file actions */}
+        <Disclosure summary="⋯ More">
+          <Btn onClick={onScreenshot} title="Save a picture">
+            Capture
+          </Btn>
+          <Btn onClick={() => exportLayoutFile(getLayout())}>Export</Btn>
+          <Btn onClick={() => fileRef.current?.click()}>Import</Btn>
+          <Btn onClick={() => confirm("Clear the whole scape?") && reset()}>
+            Reset
+          </Btn>
+        </Disclosure>
         <input
           ref={fileRef}
           type="file"

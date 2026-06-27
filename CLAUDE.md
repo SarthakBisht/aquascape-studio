@@ -85,11 +85,34 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
           tool→select, re-enabling orbit) is wired to Escape, empty-space click
           (onPointerMissed), and SelectionBar "Done"/Move-Rotate-Scale — so a
           brush/sculpt mode never traps the camera.
-  └─ UI overlay: Toolbar (Clean · Save · Gallery · Calc · Capture · Export/Import · Reset) ·
-     TankPanel · HardscapePalette (+ DrawShapeModal,
-     PhotoTo3DModal) · HardscapeEditPanel · DrawPanel · BackgroundPanel ·
-     LightPanel · GradePanel ·
-     (PlantBrowser in design / FishPanel underwater) · SelectionBar
+  └─ UI overlay:
+     · Toolbar — primary actions inline (Design/Underwater · undo/redo · Clean ·
+       Save · Gallery · Calc) + two native `<details>` popovers: **View ▾** (Zen ·
+       plants visibility · Guides + face/ratio · Growth · Quality) and **⋯ More**
+       (Capture · Export · Import · Reset). Declutters ~18 controls into a calm row.
+     · LeftRail (`ui/LeftRail.tsx`) — a thin vertical **icon tab rail** + ONE
+       active section panel (replaces the old 7-panel scroll stack, killing the
+       scroll-to-find problem). Sections: Tank (`TankPanel`) · Hardscape
+       (`HardscapePalette` + `HardscapeEditPanel`, the latter self-hides until a
+       piece is selected) · Plants (`PlantBrowser`) · Terrain (`DrawPanel`) · Scene
+       (`BackgroundPanel`+`LightPanel`+`GradePanel`) · Fish (`FishPanel`,
+       enabled only underwater). Active section = local `useState` in `Studio.tsx`
+       (transient, mirrors `calcOpen`); effects **auto-switch** it (select a piece →
+       Hardscape · enter underwater → Fish). The right column is gone → more canvas.
+     · SelectionBar (bottom-center, when a piece is selected).
+     Shared atoms in `ui/primitives.tsx`: `Btn`/`Swatch` + `SectionLabel` ·
+     `Field` · `Select` (dark `colorScheme`) · `Slider` (value readout) ·
+     `IconTab` (rail, `role="tab"`) · `Disclosure` (the `<details>` popover).
+     Global keyboard focus ring via `:focus-visible` in `globals.css`;
+     `--color-aqua` token now defined (was referenced but missing → selection
+     accents render).
+     · Responsive: the editor is fluid down to **~768px** (`md`) — Toolbar &
+       SelectionBar `flex-wrap`, modals & Disclosure popovers clamp to
+       `calc(100vw-…)`, a `viewport` export locks zoom, and `@media (pointer:
+       coarse)` gives ~44px touch targets. **Below `md`** a dismissible
+       `MobileNotice` (`md:hidden`) points to the (responsive) Gallery — full
+       phone editing / touch gizmo are deferred (ponytail: real 3D design wants a
+       real screen).
   └─ Gallery (full-screen overlay, mounted when libraryStore.galleryOpen):
      Grid | Showroom views of saved scapes; open one → loadLayout, New → reset
   └─ CalculatorOverlay (full-screen overlay, local `calcOpen` state in Studio):

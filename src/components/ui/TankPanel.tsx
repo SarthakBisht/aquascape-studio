@@ -73,7 +73,7 @@ export function TankPanel() {
       </div>
       {SUBSTRATE_GROUPS.map((g) => (
         <div key={g.type} className="mb-2">
-          <div className="mb-1 text-[9px] text-stone/70">{g.label}</div>
+          <div className="mb-1 text-[10px] text-stone/70">{g.label}</div>
           <div className="grid grid-cols-3 gap-1.5">
             {SUBSTRATES.filter((s) => s.type === g.type).map((s) => {
               const active = resolveSubstrate(substrate).id === s.id;
@@ -82,7 +82,7 @@ export function TankPanel() {
                   key={s.id}
                   title={s.label}
                   onClick={() => setSubstrate({ variant: s.id, type: s.type })}
-                  className={`flex flex-col items-center gap-1 rounded-md border p-1 text-[8px] leading-tight transition ${
+                  className={`flex flex-col items-center gap-1 rounded-md border p-1 text-[10px] leading-tight transition ${
                     active
                       ? "border-aqua bg-aqua/10 text-mist"
                       : "border-mist/10 bg-mist/[0.04] text-stone hover:border-mist/25"

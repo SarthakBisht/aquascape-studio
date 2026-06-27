@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useStudioStore } from "@/store/useStudioStore";
 import { beginStroke, onSurfaceMove, clearHover } from "@/lib/surfaceInteraction";
@@ -83,7 +83,8 @@ function buildPatchGeometry(
   return geo;
 }
 
-function GroundPatchMesh({
+// Memoized so painting/leveling a patch re-renders only the touched patch.
+const GroundPatchMesh = memo(function GroundPatchMesh({
   p,
   dims,
   substrate,
@@ -119,7 +120,7 @@ function GroundPatchMesh({
       />
     </mesh>
   );
-}
+});
 
 export function GroundCover() {
   const ground = useStudioStore((s) => s.ground);

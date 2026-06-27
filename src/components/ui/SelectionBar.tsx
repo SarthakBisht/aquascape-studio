@@ -29,7 +29,7 @@ export function SelectionBar() {
   const mat = getMaterial(item.materialId);
 
   return (
-    <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-mist/10 bg-soil/80 px-3 py-2 text-mist shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md">
+    <div className="pointer-events-auto flex max-w-[calc(100vw-1rem)] flex-wrap items-center justify-center gap-2 rounded-lg border border-mist/10 bg-soil/80 px-3 py-2 text-mist shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md">
       <span className="mr-1 font-display text-xs text-moss">
         {mat?.label ?? "Item"}
       </span>

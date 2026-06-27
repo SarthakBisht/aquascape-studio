@@ -10,16 +10,9 @@ import { TankScene } from "./scene/TankScene";
 import { Toolbar } from "./ui/Toolbar";
 import { Gallery } from "./ui/Gallery";
 import { CalculatorOverlay } from "./ui/CalculatorOverlay";
-import { TankPanel } from "./ui/TankPanel";
-import { HardscapePalette } from "./ui/HardscapePalette";
-import { HardscapeEditPanel } from "./ui/HardscapeEditPanel";
-import { DrawPanel } from "./ui/DrawPanel";
-import { BackgroundPanel } from "./ui/BackgroundPanel";
-import { LightPanel } from "./ui/LightPanel";
-import { GradePanel } from "./ui/GradePanel";
-import { PlantBrowser } from "./ui/PlantBrowser";
-import { FishPanel } from "./ui/FishPanel";
+import { LeftRail, type Section } from "./ui/LeftRail";
 import { SelectionBar } from "./ui/SelectionBar";
+import { MobileNotice } from "./ui/MobileNotice";
 import { endStroke } from "@/lib/surfaceInteraction";
 import type { Quality } from "@/lib/types";
 
@@ -34,12 +27,25 @@ export function Studio() {
   const quality = useStudioStore((s) => s.quality);
   const mode = useStudioStore((s) => s.mode);
   const zen = useStudioStore((s) => s.zen);
+  const selectedId = useStudioStore((s) => s.selectedId);
   const empty = useStudioStore(
     (s) => s.hardscape.length === 0 && s.plants.length === 0,
   );
   const galleryOpen = useLibraryStore((s) => s.galleryOpen);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [section, setSection] = useState<Section>("tank");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Keep the active section in step with what the user is doing: selecting a
+  // piece reveals its Customize controls; flooding the tank surfaces Fish.
+  useEffect(() => {
+    if (selectedId && mode === "design") setSection("hardscape");
+  }, [selectedId, mode]);
+  useEffect(() => {
+    setSection((cur) =>
+      mode === "underwater" ? "fish" : cur === "fish" ? "tank" : cur,
+    );
+  }, [mode]);
 
   // WebGL only mounts on the client — avoids SSR/window issues.
   const [mounted, setMounted] = useState(false);
@@ -174,30 +180,19 @@ export function Studio() {
       )}
 
       {/* UI overlay — dissolves in Zen mode so only the scape remains */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col gap-3 p-3">
+      <div className="pointer-events-none absolute inset-0 flex flex-col gap-2 p-2 sm:gap-3 sm:p-3">
         <Toolbar
           onScreenshot={onScreenshot}
           onSaveScape={onSaveScape}
           onOpenCalc={() => setCalcOpen(true)}
         />
         <div
-          className={`flex min-h-0 flex-1 gap-3 transition-all duration-[1100ms] ease-out ${
+          className={`flex min-h-0 flex-1 transition-all duration-[1100ms] ease-out ${
             zen ? "pointer-events-none translate-y-1 opacity-0" : "opacity-100"
           }`}
         >
-          <div className="calm-scroll flex w-64 flex-col gap-3 overflow-y-auto pr-0.5">
-            <TankPanel />
-            <HardscapePalette />
-            <HardscapeEditPanel />
-            <DrawPanel />
-            <BackgroundPanel />
-            <LightPanel />
-            <GradePanel />
-          </div>
+          <LeftRail active={section} onSelect={setSection} />
           <div className="flex-1" />
-          <div className="flex max-h-full w-64 flex-col">
-            {mode === "underwater" ? <FishPanel /> : <PlantBrowser />}
-          </div>
         </div>
         <div
           className={`flex justify-center transition-opacity duration-500 ${
@@ -207,6 +202,8 @@ export function Studio() {
           <SelectionBar />
         </div>
       </div>
+
+      <MobileNotice />
 
       {galleryOpen && <Gallery />}
       {calcOpen && <CalculatorOverlay onClose={() => setCalcOpen(false)} />}

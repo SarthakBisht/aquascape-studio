@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Clone, Outlines, TransformControls, useGLTF } from "@react-three/drei";
@@ -88,7 +88,9 @@ function HardscapeModel({ url }: { url: string }) {
   );
 }
 
-function HardscapeMesh({ item }: { item: HardscapeItem }) {
+// Memoized so a transform drag (which replaces only the moved item) re-renders
+// just that piece, not every rock/wood in the tank.
+const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeItem }) {
   // Hold the Object3D in state (via a stable callback ref) so TransformControls
   // always receives a non-null object, even when a freshly added piece is
   // auto-selected on its first render.
@@ -473,7 +475,7 @@ function HardscapeMesh({ item }: { item: HardscapeItem }) {
       )}
     </>
   );
-}
+});
 
 export function Hardscape() {
   const hardscape = useStudioStore((s) => s.hardscape);

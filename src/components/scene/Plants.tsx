@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -85,7 +85,9 @@ const DEFAULT_HABIT: PlantHabit = {
   rateScalar: 0.8,
 };
 
-function Patch({ placement }: { placement: PlantPlacement }) {
+// Memoized so a paint stroke (which replaces only the touched patch) re-renders
+// just that patch, not every patch in the tank.
+const Patch = memo(function Patch({ placement }: { placement: PlantPlacement }) {
   const growth = useStudioStore((s) => s.growth);
   const quality = useStudioStore((s) => s.quality);
   const mode = useStudioStore((s) => s.mode);
@@ -264,7 +266,7 @@ function Patch({ placement }: { placement: PlantPlacement }) {
       </instancedMesh>
     </group>
   );
-}
+});
 
 export function Plants() {
   const plants = useStudioStore((s) => s.plants);
