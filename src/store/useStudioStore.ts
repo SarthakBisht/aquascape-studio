@@ -32,6 +32,7 @@ import { fieldGrid, makeLinearField, sculptField } from "@/lib/terrain";
 import { fishCountLimit, growthLimit } from "@/lib/units";
 import { cleanScape as runCleanScape } from "@/lib/autoScape";
 import { getMaterial } from "@/data/hardscapeMaterials";
+import { getRockForm } from "@/data/rockForms";
 import { resolveSubstrate } from "@/data/substrates";
 import { TANK_PRESETS, DEFAULT_TANK_ID } from "@/data/tankPresets";
 import { DEFAULT_BACKGROUND, DEFAULT_AMBIENCE } from "@/data/backgrounds";
@@ -52,6 +53,7 @@ const noopStorage = {
 // Flushes on tab hide/close so an in-flight change isn't lost.
 // ponytail: worst case on a hard kill is losing <400ms of edits (undo history is
 // in-memory and unaffected). Per-caller throttling would be more code for less.
+let quotaWarned = false;
 function debouncedPersistStorage<S>(ms = 400): PersistStorage<S> | undefined {
   if (typeof window === "undefined") {
     return createJSONStorage<S>(() => noopStorage);
@@ -65,7 +67,20 @@ function debouncedPersistStorage<S>(ms = 400): PersistStorage<S> | undefined {
       timer = null;
     }
     if (pending) {
-      base.setItem(pending.name, pending.value);
+      try {
+        base.setItem(pending.name, pending.value);
+      } catch (err) {
+        // localStorage is full (big sculpt buffers / uploaded textures / meshes).
+        // Don't crash — the in-memory scape + undo history are unaffected; worst
+        // case the latest autosave is dropped. Export to keep work off-device.
+        if (!quotaWarned) {
+          quotaWarned = true;
+          console.warn(
+            "aquascape-studio: localStorage full — autosave skipped. Export your scape to save it.",
+            err,
+          );
+        }
+      }
       pending = null;
     }
   };
@@ -89,6 +104,34 @@ const genId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
 
+// Keep only the custom assets (uploaded images / generated meshes / custom
+// species) still referenced by a piece or plant. Used for BOTH export (getLayout)
+// and the localStorage autosave (partialize) so unreferenced uploads can't pile
+// up and blow the ~5 MB quota.
+function pruneCustomAssets(s: StudioState) {
+  const usedMesh = new Set(
+    s.hardscape.map((h) => h.meshId).filter(Boolean) as string[],
+  );
+  const usedSurface = new Set(
+    s.hardscape
+      .map((h) => h.textureId)
+      .filter((t): t is string => !!t && t.startsWith("custom:")),
+  );
+  const usedPlant = new Set(s.plants.map((p) => p.speciesId));
+  return {
+    customMeshes: Object.fromEntries(
+      Object.entries(s.customMeshes).filter(([id]) => usedMesh.has(id)),
+    ),
+    customSurfaces: Object.fromEntries(
+      Object.entries(s.customSurfaces).filter(([id]) => usedSurface.has(id)),
+    ),
+    customPlantTextures: Object.fromEntries(
+      Object.entries(s.customPlantTextures).filter(([id]) => usedPlant.has(id)),
+    ),
+    customPlants: s.customPlants.filter((p) => usedPlant.has(p.id)),
+  };
+}
+
 const DEFAULT_TANK: TankDimensions =
   TANK_PRESETS.find((t) => t.id === DEFAULT_TANK_ID)?.dims ?? {
     width: 60,
@@ -102,6 +145,13 @@ const DEFAULT_SUBSTRATE: SubstrateConfig = {
   depthFront: 3,
   depthBack: 7,
 };
+
+// Icosa subdivision a piece is rebuilt at once it becomes sculptable. three's
+// PolyhedronGeometry subdivides linearly (20·(detail+1)² tris), so 18 ≈ 7k tris
+// / ~3.6k welded verts — dense enough that brushing reads as smooth stone, not
+// faceted shards. ponytail ceiling: ~22 KB displacement buffer per sculpted rock
+// (dense int16) — fine for a handful; sparse-encode or IndexedDB for hundreds.
+const SCULPT_DETAIL = 18;
 
 const DEFAULT_GRADE: ColorGrade = {
   brightness: 0,
@@ -174,6 +224,8 @@ interface StudioState {
   customPlants: PlantSpecies[];
   /** Generated hardscape height fields (meshId → height PNG), rebuilt to geometry on load. */
   customMeshes: Record<string, CustomMesh>;
+  /** Uploaded hardscape surface images (custom id → data URL), used by triplanar. */
+  customSurfaces: Record<string, string>;
 
   // ---- persisted view settings ----
   mode: ViewMode;
@@ -207,9 +259,15 @@ interface StudioState {
   transformMode: TransformMode;
   activePlantId: string | null; // species "loaded" for the plant brush
   activeGround: string | null; // substrate variant id "loaded" for the draw brush
-  tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim";
-  /** Sculpt brush direction: +1 raises soil, -1 carves it. Transient. */
+  tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim" | "rocksculpt";
+  /** Sculpt brush direction: +1 raises soil / pushes rock out, -1 carves in. Transient. */
   sculptDir: 1 | -1;
+  /** Active clay brush for the rock sculptor (tool === "rocksculpt"). Transient. */
+  sculptBrush: "draw" | "smooth" | "grab" | "flatten" | "pinch";
+  /** Rock brush size as a fraction (0..1) of the piece's bounding radius. Transient. */
+  sculptRadius: number;
+  /** Rock brush strength 0..1. Transient. */
+  sculptStrength: number;
   placingMaterialId: string | null; // rock armed for ghost placement (transient)
   placingSeed: number; // shape seed shared by ghost + committed rock (transient)
 
@@ -234,18 +292,30 @@ interface StudioState {
   updateHardscape: (id: string, patch: Partial<HardscapeItem>) => void;
   removeHardscape: (id: string) => void;
   duplicateHardscape: (id: string) => void;
+  /** Convert a procedural rock into a freely-sculptable mesh: lock its effective
+   *  shape params, bump detail to the sculpt resolution, arm the rock brush. */
+  convertToSculpt: (id: string) => void;
   setCustomMesh: (id: string, data: CustomMesh) => void;
   clearCustomMesh: (id: string) => void;
+  setCustomSurface: (id: string, dataUrl: string) => void;
+  clearCustomSurface: (id: string) => void;
   beginPlacing: (materialId: string) => void;
   cancelPlacing: () => void;
 
   selectItem: (id: string | null) => void;
+  /** Clear selection + return to the select tool (re-enables orbit). */
+  deselectAll: () => void;
   setTransformMode: (mode: TransformMode) => void;
 
   setActivePlant: (speciesId: string | null) => void;
   setActiveGround: (variantId: string | null) => void;
-  setTool: (tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim") => void;
+  setTool: (
+    tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim" | "rocksculpt",
+  ) => void;
   setSculptDir: (dir: 1 | -1) => void;
+  setSculptBrush: (b: StudioState["sculptBrush"]) => void;
+  setSculptRadius: (v: number) => void;
+  setSculptStrength: (v: number) => void;
   /** Raise (+) / carve (−) the substrate height field under a world point. */
   sculptSubstrate: (px: number, pz: number) => void;
   setBrush: (patch: Partial<StudioState["brush"]>) => void;
@@ -307,6 +377,7 @@ export const useStudioStore = create<StudioState>()(
       customPlantTextures: {},
       customPlants: [],
       customMeshes: {},
+      customSurfaces: {},
 
       mode: "design",
       quality: "medium",
@@ -332,6 +403,9 @@ export const useStudioStore = create<StudioState>()(
       activeGround: null,
       tool: "select",
       sculptDir: 1,
+      sculptBrush: "draw",
+      sculptRadius: 0.35,
+      sculptStrength: 0.5,
       placingMaterialId: null,
       placingSeed: 0,
 
@@ -441,6 +515,37 @@ export const useStudioStore = create<StudioState>()(
         };
         set((s) => ({ hardscape: [...s.hardscape, copy], selectedId: copy.id }));
       },
+      convertToSculpt: (id) => {
+        get().pushHistory();
+        set((s) => ({
+          hardscape: s.hardscape.map((h) => {
+            if (h.id !== id) return h;
+            // Only procedural rocks become sculptable (drift/mesh/model keep theirs).
+            if (h.source && h.source !== "procedural") return h;
+            const mat = getMaterial(h.materialId);
+            const isWood = h.kind === "wood";
+            const def = getRockForm(h.form ?? mat?.form);
+            // Freeze the effective params so the welded vertex order is stable on
+            // reload (displacement indices must keep aligning to the same base).
+            return {
+              ...h,
+              source: "sculpt" as const,
+              form: h.form ?? mat?.form ?? "boulder",
+              shape: h.shape ?? mat?.shape ?? def.shape,
+              jaggedness:
+                h.jaggedness ?? mat?.jaggedness ?? (isWood ? 0.22 : def.jaggedness),
+              detail: SCULPT_DETAIL,
+              taper: h.taper ?? def.taper,
+              flat: h.flat ?? def.flat,
+              tilt: h.tilt ?? 0,
+              strata: h.strata ?? mat?.strata ?? def.strata,
+              veinColor: h.veinColor ?? mat?.veinColor,
+            };
+          }),
+          selectedId: id,
+          tool: "rocksculpt",
+        }));
+      },
       setCustomMesh: (id, data) =>
         set((s) => ({ customMeshes: { ...s.customMeshes, [id]: data } })),
       clearCustomMesh: (id) =>
@@ -448,6 +553,14 @@ export const useStudioStore = create<StudioState>()(
           const next = { ...s.customMeshes };
           delete next[id];
           return { customMeshes: next };
+        }),
+      setCustomSurface: (id, dataUrl) =>
+        set((s) => ({ customSurfaces: { ...s.customSurfaces, [id]: dataUrl } })),
+      clearCustomSurface: (id) =>
+        set((s) => {
+          const next = { ...s.customSurfaces };
+          delete next[id];
+          return { customSurfaces: next };
         }),
 
       beginPlacing: (materialId) =>
@@ -466,6 +579,17 @@ export const useStudioStore = create<StudioState>()(
         })),
 
       selectItem: (id) => set({ selectedId: id }),
+      // Global "drop everything": clear selection AND return to the select tool so
+      // orbit works again (every brush/sculpt mode disables OrbitControls). Wired
+      // to Escape, empty-space click, and the SelectionBar "Done".
+      deselectAll: () =>
+        set({
+          selectedId: null,
+          tool: "select",
+          activePlantId: null,
+          activeGround: null,
+          placingMaterialId: null,
+        }),
       setTransformMode: (mode) => set({ transformMode: mode }),
 
       setActivePlant: (speciesId) =>
@@ -493,6 +617,9 @@ export const useStudioStore = create<StudioState>()(
         }),
       setBrush: (patch) => set((s) => ({ brush: { ...s.brush, ...patch } })),
       setSculptDir: (dir) => set({ sculptDir: dir }),
+      setSculptBrush: (b) => set({ sculptBrush: b }),
+      setSculptRadius: (v) => set({ sculptRadius: Math.max(0.05, Math.min(1, v)) }),
+      setSculptStrength: (v) => set({ sculptStrength: Math.max(0, Math.min(1, v)) }),
       sculptSubstrate: (px, pz) => {
         get().pushHistory(); // suppressed mid-stroke (one undo per drag)
         set((s) => {
@@ -688,6 +815,7 @@ export const useStudioStore = create<StudioState>()(
           ground: layout.ground ?? [],
           background: layout.background ?? DEFAULT_BACKGROUND,
           customMeshes: layout.customMeshes ?? {},
+          customSurfaces: layout.customSurfaces ?? {},
           // v2 look (each defaults so v1 files still load cleanly)
           ambience: layout.ambience ?? DEFAULT_AMBIENCE,
           lights: layout.lights ?? DEFAULT_LIGHTS,
@@ -703,20 +831,9 @@ export const useStudioStore = create<StudioState>()(
       },
       getLayout: () => {
         const s = get();
-        // Only export the height fields / photos still referenced by a piece.
-        const usedMesh = new Set(
-          s.hardscape.map((h) => h.meshId).filter(Boolean) as string[],
-        );
-        const customMeshes = Object.fromEntries(
-          Object.entries(s.customMeshes).filter(([id]) => usedMesh.has(id)),
-        );
-        const usedPlant = new Set(s.plants.map((p) => p.speciesId));
-        const customPlantTextures = Object.fromEntries(
-          Object.entries(s.customPlantTextures).filter(([id]) =>
-            usedPlant.has(id),
-          ),
-        );
-        const customPlants = s.customPlants.filter((p) => usedPlant.has(p.id));
+        // Only export custom assets still referenced by a piece / plant.
+        const { customMeshes, customSurfaces, customPlantTextures, customPlants } =
+          pruneCustomAssets(s);
         return {
           version: 2,
           tank: s.tank,
@@ -727,6 +844,7 @@ export const useStudioStore = create<StudioState>()(
           ground: s.ground,
           background: s.background,
           customMeshes,
+          customSurfaces,
           ambience: s.ambience,
           lights: s.lights,
           fish: s.fish,
@@ -756,6 +874,7 @@ export const useStudioStore = create<StudioState>()(
           growth: 0.25,
           mode: "design",
           customMeshes: {},
+          customSurfaces: {},
           customPlantTextures: {},
           customPlants: [],
           selectedId: null,
@@ -825,9 +944,9 @@ export const useStudioStore = create<StudioState>()(
         ground: s.ground,
         background: s.background,
         ambience: s.ambience,
-        customPlantTextures: s.customPlantTextures,
-        customPlants: s.customPlants,
-        customMeshes: s.customMeshes,
+        // Persist only referenced custom assets (unreferenced uploads/meshes
+        // would otherwise pile up and exceed the localStorage quota).
+        ...pruneCustomAssets(s),
         mode: s.mode,
         quality: s.quality,
         showGuides: s.showGuides,
@@ -838,7 +957,7 @@ export const useStudioStore = create<StudioState>()(
         fish: s.fish,
         brush: s.brush,
       }),
-      version: 6,
+      version: 7,
       migrate: (persisted: unknown, version: number) => {
         const s = (persisted ?? {}) as Record<string, unknown>;
         if (version < 1) {
@@ -866,6 +985,11 @@ export const useStudioStore = create<StudioState>()(
         }
         if (version < 6) {
           s.guides = { face: "front", ratio: "both" };
+        }
+        if (version < 7) {
+          if (typeof s.customSurfaces !== "object" || s.customSurfaces === null) {
+            s.customSurfaces = {};
+          }
         }
         return s as unknown as StudioState;
       },

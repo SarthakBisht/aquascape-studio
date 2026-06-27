@@ -31,6 +31,7 @@ export const HARDSCAPE_MATERIALS: HardscapeMaterial[] = [
     shape: [1.0, 1.05, 1.0],
     jaggedness: 0.55,
     textureId: "dragonstone",
+    form: "dragon",
   },
   {
     id: "lava",

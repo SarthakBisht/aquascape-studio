@@ -16,6 +16,10 @@ export interface RockFormDef {
   taper: number;
   /** Planar cleave 0..1 (flat top + side face). */
   flat: number;
+  /** Dragon-scale pitting strength 0..1 (cellular craters). Omit ⇒ none. */
+  pitting?: number;
+  /** Pit cell frequency (≈ craters across the rock). */
+  pitScale?: number;
 }
 
 export const ROCK_FORMS: Record<RockForm, RockFormDef> = {
@@ -78,6 +82,18 @@ export const ROCK_FORMS: Record<RockForm, RockFormDef> = {
     strata: false,
     taper: -0.7,
     flat: 0.25,
+  },
+  dragon: {
+    label: "Dragon Stone",
+    primitive: "icosa",
+    shape: [1.35, 0.95, 1.0],
+    jaggedness: 0.4,
+    detail: 3,
+    strata: false,
+    taper: 0.1,
+    flat: 0.1,
+    pitting: 0.7,
+    pitScale: 5,
   },
   arch: {
     label: "Arch",

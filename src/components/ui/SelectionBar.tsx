@@ -17,10 +17,11 @@ export function SelectionBar() {
   const hardscape = useStudioStore((s) => s.hardscape);
   const transformMode = useStudioStore((s) => s.transformMode);
   const setTransformMode = useStudioStore((s) => s.setTransformMode);
+  const setTool = useStudioStore((s) => s.setTool);
   const updateHardscape = useStudioStore((s) => s.updateHardscape);
   const duplicateHardscape = useStudioStore((s) => s.duplicateHardscape);
   const removeHardscape = useStudioStore((s) => s.removeHardscape);
-  const selectItem = useStudioStore((s) => s.selectItem);
+  const deselectAll = useStudioStore((s) => s.deselectAll);
 
   if (mode !== "design" || !selectedId) return null;
   const item = hardscape.find((h) => h.id === selectedId);
@@ -37,7 +38,10 @@ export function SelectionBar() {
           <Btn
             key={m.id}
             active={transformMode === m.id}
-            onClick={() => setTransformMode(m.id)}
+            onClick={() => {
+              setTransformMode(m.id);
+              setTool("select"); // exit sculpt/brush so the gizmo + orbit return
+            }}
           >
             {m.label}
           </Btn>
@@ -59,7 +63,7 @@ export function SelectionBar() {
       >
         Remove
       </Btn>
-      <Btn onClick={() => selectItem(null)}>Done</Btn>
+      <Btn onClick={() => deselectAll()}>Done</Btn>
     </div>
   );
 }

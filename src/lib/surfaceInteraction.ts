@@ -124,7 +124,9 @@ function paintAt(e: ThreeEvent<PointerEvent>) {
 /** Pointer down on a paintable surface — begin a stroke if a brush is active. */
 export function beginStroke(e: ThreeEvent<PointerEvent>): boolean {
   const s = useStudioStore.getState();
-  if (s.tool === "select") return false;
+  // rocksculpt is handled directly by the selected piece (see Hardscape.tsx),
+  // not the paint engine — ignore it here so other surfaces don't react.
+  if (s.tool === "select" || s.tool === "rocksculpt") return false;
   e.stopPropagation();
   stroke.active = true;
   stroke.painted = false;

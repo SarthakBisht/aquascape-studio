@@ -56,18 +56,22 @@ export function Studio() {
   // typing in a form field).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      const k = e.key.toLowerCase();
-      if (k !== "z" && k !== "y") return;
       const t = e.target as HTMLElement | null;
-      if (
-        t &&
+      const typing =
+        !!t &&
         (t.tagName === "INPUT" ||
           t.tagName === "TEXTAREA" ||
           t.tagName === "SELECT" ||
-          t.isContentEditable)
-      )
+          t.isContentEditable);
+      // Escape = global "drop everything" → deselect + back to orbit.
+      if (e.key === "Escape" && !typing) {
+        useStudioStore.getState().deselectAll();
         return;
+      }
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k !== "z" && k !== "y") return;
+      if (typing) return;
       e.preventDefault();
       const store = useStudioStore.getState();
       if (k === "y" || (k === "z" && e.shiftKey)) store.redo();
@@ -150,7 +154,7 @@ export function Studio() {
           canvasRef.current = gl.domElement;
           gl.localClippingEnabled = true;
         }}
-        onPointerMissed={() => useStudioStore.getState().selectItem(null)}
+        onPointerMissed={() => useStudioStore.getState().deselectAll()}
       >
         <TankScene />
       </Canvas>

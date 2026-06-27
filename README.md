@@ -20,7 +20,10 @@ design a hardscape + planting layout, orbit around it from any angle, then
 - **Hardscape** — procedurally generated rocks grounded in real aquascaping
   stones (Seiryu, Dragon/Ohko, Lava, Frodo, Elephant Skin, Pagoda, Petrified
   Wood). Each ships **textured by default** — angular, eroded geometry (ridged 3D
-  noise → sharp crests + cavities, with per-seed shape variety so no two are
+  noise → sharp crests + cavities, plus an optional **Dragon-scale pitting** pass
+  [cellular noise carves rounded craters with sharp walls — tune **Pitting** +
+  **Pit density**, or pick the **Dragon Stone** form on any rock], with per-seed
+  shape variety so no two are
   alike) wrapped in a seamless **PBR surface** (domain-warped grain, crevice
   shading, per-piece colour/sample jitter) — plus driftwood (Spider Wood,
   Manzanita). Pick a stone and a **ghost preview follows
@@ -38,6 +41,16 @@ design a hardscape + planting layout, orbit around it from any angle, then
   faces, **tilt**, jaggedness, detail, layered strata, vein color). **♻ New shape**
   rolls a fresh random variant of the same form. Spawn an Arch / Bowl / Slab /
   Spire straight from the palette's **Rock forms** row.
+- **Sculpt the rock by hand (Blender-style)** — hit **✋ Sculpt this shape** on any
+  rock and the sliders give way to a clay **brush**: drag directly on the stone to
+  reshape it **from any angle** — **Push/Pull** (raise / carve along the surface),
+  **Smooth**, **Grab** (drag a region like wet clay), **Flatten**, and **Pinch**
+  (sharpen ridges), with size + strength controls. Every stroke is one undo; the
+  shape persists with the scape. Orbit pauses while sculpting and resumes when you
+  stop.
+- **Bring your own texture** — in the **Surface** row, **＋ Upload** a rock/wood
+  photo and it's tiled onto the piece (triplanar, so it wraps any shape); a **Tex
+  scale** slider sets the real-world repeat size in cm.
 - **Make your own hardscape** — four ways, all client-side:
   - **Driftwood generator** — one click spawns a unique **branchy** piece
     (recursive tapered limbs); tune branches / length / gnarl / taper / splits /
@@ -205,8 +218,9 @@ src/
   store/useLibraryStore.ts  saved-scape gallery (separate persisted store)
   data/                tankPresets, hardscapeMaterials, hardscapeTextures,
                        plants, stylePresets, dosing (calculator reference tables)
-  lib/                 types, units, proceduralRock, driftwood, inflate,
-                       heightfieldMesh, hardscapeTextureGen, depthFromImage,
+  lib/                 types, units, proceduralRock, rockSculpt (free 3D sculpt),
+                       driftwood, inflate, heightfieldMesh, hardscapeTextureGen,
+                       surfaceImage (uploaded textures), depthFromImage,
                        aquacalc (calculator formulas), persistence
 public/ASSETS.md       where to drop CC0 models/textures/HDRIs
 ```

@@ -116,7 +116,9 @@ export function DrawPanel() {
         </span>
       </label>
 
-      {tool !== "select" ? (
+      {/* Only the tools this panel owns light up the "Drawing" banner — not
+          rocksculpt / trim / plant / place, which have their own controls. */}
+      {tool === "sculpt" || tool === "ground" ? (
         <button
           onClick={() => setTool("select")}
           className="mt-2.5 w-full rounded-md bg-moss/20 px-2 py-1.5 text-[11px] text-moss ring-1 ring-moss/40 transition-colors hover:bg-moss/30"

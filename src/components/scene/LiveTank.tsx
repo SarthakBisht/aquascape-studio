@@ -9,7 +9,10 @@ import {
 } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import {
+  mergeGeometries,
+  mergeVertices,
+} from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { GlassTank } from "./GlassTank";
 import { Fish } from "./Fish";
 import { BackdropPanel } from "./Backdrop";
@@ -22,6 +25,8 @@ import { plantHabit } from "@/lib/plantHabit";
 import { makeRockGeometry } from "@/lib/proceduralRock";
 import { makeDriftwoodGeometry, DEFAULT_DRIFT } from "@/lib/driftwood";
 import { meshFromHeightfield, loadHeightField } from "@/lib/heightfieldMesh";
+import { decodeDisp } from "@/lib/rockSculpt";
+import { useSurfaceTexture } from "@/lib/surfaceImage";
 import { usePlantTexture } from "@/lib/plantTextures";
 import { fieldGrid, sampleField } from "@/lib/terrain";
 import { useSubstrateTextures } from "@/lib/substrateTextureGen";
@@ -121,9 +126,11 @@ function PreviewSubstrate({
 function PreviewPiece({
   item,
   customMeshes,
+  customSurfaces,
 }: {
   item: HardscapeItem;
   customMeshes: Record<string, CustomMesh>;
+  customSurfaces: Record<string, string>;
 }) {
   const material = getMaterial(item.materialId);
 
@@ -133,18 +140,38 @@ function PreviewPiece({
       return makeDriftwoodGeometry(item.seed, item.drift ?? DEFAULT_DRIFT);
     const isWood = item.kind === "wood";
     const def = getRockForm(item.form ?? material?.form);
-    return makeRockGeometry(item.seed, {
+    const raw = makeRockGeometry(item.seed, {
       primitive: def.primitive,
       jaggedness:
         item.jaggedness ?? material?.jaggedness ?? (isWood ? 0.22 : def.jaggedness),
-      detail: item.detail ?? (isWood ? 1 : def.detail),
+      detail:
+        item.source === "sculpt" ? item.detail ?? 4 : item.detail ?? (isWood ? 1 : def.detail),
       shape: item.shape ?? material?.shape ?? def.shape,
       taper: item.taper ?? def.taper,
       flat: item.flat ?? def.flat,
       tilt: item.tilt ?? 0,
       veinColor: item.veinColor ?? material?.veinColor,
       strata: item.strata ?? material?.strata ?? def.strata,
+      pitting: item.pitting ?? def.pitting,
+      pitScale: item.pitScale ?? def.pitScale,
     });
+    // Sculpted piece: weld to the same base the editor uses, then add the stored
+    // displacement → the saved shape renders faithfully in the gallery.
+    if (item.source === "sculpt") {
+      const geo = mergeVertices(raw);
+      raw.dispose();
+      geo.computeVertexNormals();
+      if (item.sculptD) {
+        const pos = geo.attributes.position.array as Float32Array;
+        const base = pos.slice();
+        const disp = decodeDisp(item.sculptD, base.length / 3);
+        for (let i = 0; i < pos.length; i++) pos[i] = base[i] + disp[i];
+        geo.attributes.position.needsUpdate = true;
+        geo.computeVertexNormals();
+      }
+      return geo;
+    }
+    return raw;
   }, [item, material]);
   useEffect(() => () => procGeometry?.dispose(), [procGeometry]);
 
@@ -173,19 +200,47 @@ function PreviewPiece({
   }, [customHeight]);
 
   const geometry = item.source === "mesh" ? meshGeo : procGeometry;
-  if (!geometry) return null;
 
-  const surface = getSurface(item.textureId ?? material?.textureId ?? "");
-  const color = item.color ?? (surface ? "#ffffff" : material?.color ?? "#7a7a7a");
+  const textureId = item.textureId ?? material?.textureId;
+  const isCustomTex = !!textureId && textureId.startsWith("custom:");
+  const customTex = useSurfaceTexture(
+    isCustomTex ? customSurfaces[textureId!] : undefined,
+  );
+  const surface = isCustomTex ? undefined : getSurface(textureId ?? "");
+  const hasTex = isCustomTex ? !!customTex : !!surface;
+  const color = item.color ?? (hasTex ? "#ffffff" : material?.color ?? "#7a7a7a");
   const roughness = item.roughness ?? material?.roughness ?? 0.9;
+
+  if (!geometry) return null;
 
   return (
     <group position={item.position} rotation={item.rotation} scale={item.scale}>
       <mesh geometry={geometry} castShadow receiveShadow>
-        {surface ? (
-          <TriplanarMaterial surface={surface} color={color} roughness={roughness} seed={item.seed} />
+        {isCustomTex && customTex ? (
+          <TriplanarMaterial
+            albedo={customTex}
+            tileCm={item.textureScaleCm ?? 20}
+            color={color}
+            roughness={roughness}
+            seed={item.seed}
+            doubleSide={item.source === "sculpt"}
+          />
+        ) : surface ? (
+          <TriplanarMaterial
+            surface={surface}
+            color={color}
+            roughness={roughness}
+            seed={item.seed}
+            doubleSide={item.source === "sculpt"}
+          />
         ) : (
-          <meshStandardMaterial color={color} roughness={roughness} vertexColors flatShading />
+          <meshStandardMaterial
+            color={color}
+            roughness={roughness}
+            vertexColors
+            flatShading
+            side={item.source === "sculpt" ? THREE.DoubleSide : THREE.FrontSide}
+          />
         )}
       </mesh>
     </group>
@@ -411,6 +466,7 @@ export function ScapeContent({
   const underwater = underwaterOverride ?? layout.mode === "underwater";
   const growth = layout.growth ?? 0.25;
   const customMeshes = layout.customMeshes ?? {};
+  const customSurfaces = layout.customSurfaces ?? {};
   const customPlantTextures = layout.customPlantTextures ?? {};
   const customPlants = layout.customPlants ?? [];
   return (
@@ -423,7 +479,12 @@ export function ScapeContent({
       <GlassTank dims={dims} />
       <PreviewSubstrate dims={dims} substrate={layout.substrate} />
       {layout.hardscape.map((item) => (
-        <PreviewPiece key={item.id} item={item} customMeshes={customMeshes} />
+        <PreviewPiece
+          key={item.id}
+          item={item}
+          customMeshes={customMeshes}
+          customSurfaces={customSurfaces}
+        />
       ))}
       {layout.plants.map((p) => (
         <PreviewPatch

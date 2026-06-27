@@ -1,7 +1,11 @@
 "use client";
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import {
+  persist,
+  createJSONStorage,
+  type PersistStorage,
+} from "zustand/middleware";
 import type { Layout } from "@/lib/types";
 
 // A local gallery of saved aquascapes. Kept in its own persisted store (and its
@@ -24,6 +28,39 @@ const noopStorage = {
   setItem: () => {},
   removeItem: () => {},
 };
+
+// Quota-safe storage: a full localStorage must not crash the app. zustand
+// persists on EVERY set(), so once the saved-scape blob (thumbnails + layouts)
+// exceeds the ~5 MB quota, even toggling the gallery would throw at setItem.
+// Swallow the QuotaExceededError (warn once) — the in-memory library is
+// unaffected, only the latest write is dropped. Export a scape to keep it
+// off-device. Mirrors useStudioStore's persist guard.
+// ponytail: no debounce here (library writes are rare — save/rename/remove, not
+// 60Hz gestures); add it like the editor store if that changes.
+let quotaWarned = false;
+function quotaSafeStorage<S>(): PersistStorage<S> | undefined {
+  if (typeof window === "undefined") {
+    return createJSONStorage<S>(() => noopStorage);
+  }
+  const base = createJSONStorage<S>(() => window.localStorage)!;
+  return {
+    getItem: (name) => base.getItem(name),
+    removeItem: (name) => base.removeItem(name),
+    setItem: (name, value) => {
+      try {
+        base.setItem(name, value);
+      } catch (err) {
+        if (!quotaWarned) {
+          quotaWarned = true;
+          console.warn(
+            "aquascape-studio: localStorage full — gallery save skipped. Export your scape to keep it.",
+            err,
+          );
+        }
+      }
+    },
+  };
+}
 
 const genId = () =>
   `scape_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -85,9 +122,7 @@ export const useLibraryStore = create<LibraryState>()(
     }),
     {
       name: "aquascape-studio:library",
-      storage: createJSONStorage(() =>
-        typeof window !== "undefined" ? window.localStorage : noopStorage,
-      ),
+      storage: quotaSafeStorage(),
       // ponytail: galleryOpen is transient; thumbnails live in localStorage so a
       // few dozen scapes is the comfortable ceiling (~5 MB). Move to IndexedDB if
       // users hoard hundreds.

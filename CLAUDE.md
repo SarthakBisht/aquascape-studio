@@ -67,10 +67,12 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        ├─ Lighting (fixture-driven rig + baked fill) · LightFixtures (hardware)
        ├─ Backdrop · GlassTank · Substrate (sculptable height field)  (always)
        ├─ Hardscape  → HardscapeMesh: geometry by `source` (procedural rock /
-       │               branching `drift` / generated `mesh` from a height field)
-       │               OR .glb model; look = TriplanarMaterial (procedural PBR
-       │               surface — ON BY DEFAULT via material.textureId) + per-piece
-       │               color tint, or flat vertex-color fallback; + gizmo
+       │               branching `drift` / generated `mesh` from a height field /
+       │               hand-`sculpt`ed welded mesh + displacement) OR .glb model;
+       │               look = TriplanarMaterial (procedural PBR surface — ON BY
+       │               DEFAULT via material.textureId, or an uploaded image) +
+       │               per-piece color tint, or flat vertex-color fallback; + gizmo
+       │               / rock-sculpt brush (rocksculpt tool)
        ├─ PlacementGhost (cursor-following rock ghost while placing)
        ├─ PlantTools (tweezers + ghost sprig when planting / scissors when trimming)
        ├─ Plants     → Patch (instanced crossed-billboard cards, paint-to-fill)
@@ -78,8 +80,11 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        ├─ CompositionGuides   front-view thirds/golden grid drawn ON the glass
        │                       (front / back / both pane; design mode + toggle)
        ├─ ColorGrade (EffectComposer, mounted only when grade ≠ neutral)
-       └─ OrbitControls(makeDefault); paint raycasts Substrate/Hardscape,
-          deselect via Canvas onPointerMissed
+       └─ OrbitControls(makeDefault, enabled only when tool==="select"); paint
+          raycasts Substrate/Hardscape. **deselectAll** (clear selection + reset
+          tool→select, re-enabling orbit) is wired to Escape, empty-space click
+          (onPointerMissed), and SelectionBar "Done"/Move-Rotate-Scale — so a
+          brush/sculpt mode never traps the camera.
   └─ UI overlay: Toolbar (Clean · Save · Gallery · Calc · Capture · Export/Import · Reset) ·
      TankPanel · HardscapePalette (+ DrawShapeModal,
      PhotoTo3DModal) · HardscapeEditPanel · DrawPanel · BackgroundPanel ·
@@ -97,15 +102,23 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   brightness/contrast/saturation/hue color grade) and the plant `brush`
   (`radius`/`density`/`scale` applied to newly painted patches). Transient,
   never persisted: `selectedId`, `transformMode`, `activePlantId`, `activeGround`,
-  `tool` (now `select|plant|ground|place|sculpt|trim`), `sculptDir` (+1 raise / −1
-  carve), and the placement pair
+  `tool` (now `select|plant|ground|place|sculpt|trim|rocksculpt`), `sculptDir`
+  (+1 raise soil / push rock out, −1 carve), the **rock-sculpt brush** state
+  (`sculptBrush` draw|smooth|grab|flatten|pinch, `sculptRadius` 0..1, `sculptStrength`
+  0..1), and the placement pair
   `placingMaterialId`/`placingSeed`. Also persisted: `customMeshes`
   (meshId → grayscale height PNG for generated pieces, mirrors
-  `customPlantTextures`) and `customPlants` (user-created `PlantSpecies[]`, each
-  paired with a `customPlantTextures` image — the "add your own plant" library). A persist `version`/`migrate` (now v5) maps the legacy
+  `customPlantTextures`), `customSurfaces` (custom-id → uploaded surface image data
+  URL, used by triplanar — mirrors `customPlantTextures`), and `customPlants`
+  (user-created `PlantSpecies[]`, each
+  paired with a `customPlantTextures` image — the "add your own plant" library). A persist `version`/`migrate` (now v7) maps the legacy
   `grownIn` boolean → `growth`, seeds a default light rig, and defaults
-  `customMeshes`. `getLayout()` prunes unreferenced `customMeshes` before export;
-  `loadLayout()` restores them.
+  `customMeshes`/`customSurfaces`. **Both `getLayout()` (export) and `partialize`
+  (the localStorage autosave) prune custom assets to referenced-only** via
+  `pruneCustomAssets()` — unreferenced uploads/meshes would otherwise pile up and
+  exceed the ~5 MB quota; `loadLayout()` restores them. The debounced persist
+  `flush` swallows a `QuotaExceededError` (warns once) so a full disk can't crash
+  the editor — the in-memory scape + undo are unaffected; Export to save off-device.
 - **Gallery / saved scapes** (`useLibraryStore`, separate persist key
   `aquascape-studio:library`): a local library of `SavedScape` {id, name, thumb
   (downscaled JPEG data URL), layout, dates} kept out of the editor's
@@ -170,16 +183,22 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   with `addGeneratedHardscape(partial)`:
   - `procedural` (`src/lib/proceduralRock.ts`): a **base primitive chosen by
     `form`** displaced by layered 3D value noise — smooth `fbm3` bulges + a
-    *ridged* `ridged3` term for sharp angular crests + a fine octave; per-seed
+    *ridged* `ridged3` term for sharp angular crests + a fine octave + an optional
+    **`worley3` cellular pitting** term that carves rounded craters (inward at cell
+    centres) with thin sharp walls — the **Dragon-stone "scale" look** (`pitting`
+    strength + `pitScale` density; clamped ≤0.25·R so faces can't invert; `pitting:0`
+    ⇒ legacy rocks unchanged); per-seed
     frequency/strength/anisotropy jitter so no two rocks are siblings. **Forms**
-    (`src/data/rockForms.ts`, `ROCK_FORMS`): boulder/cobble/slab/plate/spire/shard
+    (`src/data/rockForms.ts`, `ROCK_FORMS`): boulder/cobble/slab/plate/spire/shard/
+    **dragon** (icosa + baked pitting; the Dragon Stone material points at it)
     use an `IcosahedronGeometry` (displaced **radially** — duplicated polyhedron
     verts share a direction → gap-free); **arch** uses a half-`TorusGeometry` and
     **bowl** a `LatheGeometry` U-profile (displaced along the shared **normal**) so
     they're genuinely **non-convex**, not lumpy spheres. Post-transforms: `shape`
     axis scale → `taper` (radius by height) → `flat` (planar cleave → flat faces)
     → `tilt`. Per-piece overrides (`form`/`shape`/`jaggedness`/`detail`/`strata`/
-    `veinColor`/`taper`/`flat`/`tilt`) win over the form default, then the
+    `veinColor`/`taper`/`flat`/`tilt`/`pitting`/`pitScale`) win over the form
+    default, then the
     material. Only seed+params persist, so layouts stay tiny. The lib is data-free
     (the render layer resolves `form`→`primitive`) so its `node`-runnable
     self-check works.
@@ -193,6 +212,21 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
     stone not a pillow; `DrawShapeModal` shows a live R3F preview + mirror is off
     by default) or **Photo → 3D** (`src/lib/depthFromImage.ts`: Depth-Anything
     depth × bg-removal mask). `heightToDataUrl`/`loadHeightField` (de)serialize.
+  - `sculpt` (`src/lib/rockSculpt.ts`): the **Blender-style hand-sculpt** path.
+    `convertToSculpt(id)` freezes a procedural rock's effective params (so the
+    welded vertex order is stable) and bumps detail to a sculpt resolution; the
+    render rebuilds the deterministic base, **welds it** (`mergeVertices` →
+    indexed, smooth normals, no cracks), and adds a **per-vertex vec3 displacement**
+    from `item.sculptD` (quantized int16 base64 — the only thing that persists, a
+    few KB). The `rocksculpt` tool drives a clay brush set — **draw** (push/pull
+    along the normal, ±`sculptDir`), **smooth**, **grab** (camera-plane drag, rides
+    a window listener so it tracks off-silhouette), **flatten**, **pinch** — each
+    mutating the live geometry + `disp` in lockstep during a drag, then committing
+    `encodeDisp(disp)` via `updateHardscape` on stroke-end (one undo). The lib is
+    pure array math (no three/DOM) with a `node`-runnable self-check; the editor
+    (`Hardscape.tsx`) and gallery (`LiveTank.tsx` `PreviewPiece`) both weld+apply.
+    ponytail ceiling: welded `detail:4` (~2.5k verts) + a dense int16 buffer
+    (~15–20 KB/rock) — fine for dozens, sparse-encode / IndexedDB for hundreds.
 - **Per-piece look** (`HardscapeEditPanel` → `updateHardscape`): `color` tint,
   `roughness`, and a `textureId` into `HARDSCAPE_SURFACES`
   (`src/data/hardscapeTextures.ts`). **Every library material sets a default
@@ -209,7 +243,14 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   sample world-space triplanar, since the generated/icosahedron UVs can't tile;
   `envMapIntensity 1.25` for wet-stone sheen, and a **per-piece seed → sample
   offset + shade** so two stones of the same surface aren't visibly cloned).
-  Regenerate (SelectionBar) rolls a new seed (rock + drift).
+  Regenerate (SelectionBar) rolls a new seed (rock + drift). **Bring-your-own
+  texture:** the Surface row's **＋ Upload** runs `loadSurfaceImage` (downscale →
+  WebP data URL, no bg-removal — it tiles), stores it in `customSurfaces` under a
+  `"custom:"`-prefixed id, and points `item.textureId` at it. `TriplanarMaterial`
+  takes an `albedo` texture instead of a `surface` (the shader's `#ifdef` map
+  guards drop normal/roughness → flat fallback), `useSurfaceTexture` loads it as a
+  `RepeatWrapping` texture, and `item.textureScaleCm` (Tex scale slider) sets the
+  triplanar repeat.
 - **Editing loop:** click a piece → `selectItem` → drei `TransformControls`
   (move/rotate/scale) writes the transform back to the store `onObjectChange`.
   `OrbitControls makeDefault` lets TransformControls auto-disable orbit mid-drag.
@@ -361,7 +402,10 @@ distinct shape + surface via jaggedness/veins/strata/vertex-color mottling) +
 driftwood (or drop-in `.glb` models), placed by **ghost-preview click-to-place**
 (inside or outside the tank) then transform + stacking, **per-piece hardscape
 customization** (color tint + a procedural-PBR **surface library** via triplanar +
-**sculpt sliders**), and **make-your-own hardscape** — a **branching driftwood
+**sculpt sliders** + **upload-your-own texture** image), **Blender-style hand
+sculpting** of any rock (welded mesh + a clay brush set — push/pull, smooth, grab,
+flatten, pinch — that reshapes it from all angles, persisted as a small per-vertex
+displacement), and **make-your-own hardscape** — a **branching driftwood
 generator**, **Draw → 3D** (sketch a silhouette, inflate to a 3D piece), and
 **Photo → 3D** (in-browser AI depth turns a driftwood/rock photo into a real
 mesh); a user-built **overhead

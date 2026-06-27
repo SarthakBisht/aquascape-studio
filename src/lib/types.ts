@@ -48,6 +48,7 @@ export type RockForm =
   | "spire"
   | "shard"
   | "cobble"
+  | "dragon"
   | "arch"
   | "bowl";
 
@@ -139,14 +140,26 @@ export interface HardscapeItem {
   /** Seed drives the procedural geometry so each rock is unique but stable. */
   seed: number;
 
-  /** Geometry source. Undefined ⇒ "procedural" (legacy rocks). */
-  source?: "procedural" | "drift" | "mesh";
+  /** Geometry source. Undefined ⇒ "procedural" (legacy rocks). "sculpt" = a
+   *  procedural base that's been freely 3D-sculpted (see lib/rockSculpt.ts). */
+  source?: "procedural" | "drift" | "mesh" | "sculpt";
 
   // ---- per-piece look overrides (fall back to the material) ----
   color?: string;
-  /** Triplanar PBR surface from HARDSCAPE_SURFACES; overrides material default. */
+  /** Triplanar PBR surface: a HARDSCAPE_SURFACES id, OR a "custom:"-prefixed id
+   *  into the store's customSurfaces (an uploaded photo). Overrides the material. */
   textureId?: string;
   roughness?: number;
+  /** Triplanar repeat size (cm) for an uploaded custom texture. Default ~20. */
+  textureScaleCm?: number;
+
+  // ---- free-sculpt (source === "sculpt") ----
+  /** Per-welded-vertex vec3 displacement from the locked base, quantized base64
+   *  (see lib/rockSculpt.ts). Undefined ⇒ base shape, not yet brushed. */
+  sculptD?: string;
+  /** Welded vertex count the buffer was authored against — a load-time guard so a
+   *  param-lock mismatch decodes to "un-sculpted" rather than corrupting verts. */
+  sculptN?: number;
 
   // ---- per-piece rock sculpt overrides (passed to makeRockGeometry) ----
   /** Base form (undefined ⇒ material default ⇒ boulder). */
@@ -162,6 +175,10 @@ export interface HardscapeItem {
   flat?: number;
   /** Small lean so the piece isn't axis-symmetric (radians-ish, 0..1). */
   tilt?: number;
+  /** Dragon-scale pitting strength 0..1 (cellular craters). 0 ⇒ none. */
+  pitting?: number;
+  /** Pit cell frequency (≈ craters across the rock). Bigger = denser. */
+  pitScale?: number;
 
   /** Driftwood generator params (when source === "drift"). */
   drift?: DriftParams;
@@ -394,6 +411,9 @@ export interface Layout {
   background?: BackgroundConfig;
   /** Generated custom-mesh height fields referenced by hardscape pieces. */
   customMeshes?: Record<string, CustomMesh>;
+  /** Uploaded hardscape surface images (custom id → data URL), referenced by a
+   *  piece's `textureId`. Mirrors customPlantTextures. */
+  customSurfaces?: Record<string, string>;
 
   // ---- v2: full scape look ----
   ambience?: string;

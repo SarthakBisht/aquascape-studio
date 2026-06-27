@@ -89,6 +89,50 @@ function ridged3(x: number, y: number, z: number, seed: number): number {
   return sum / max;
 }
 
+/**
+ * 3D cellular (Worley) noise — distance to the nearest (`f1`) and second-nearest
+ * (`f2`) jittered feature point (one per integer lattice cell, scanned over the
+ * 3×3×3 neighbourhood). `f1` small ≈ a cell interior → carve a rounded crater;
+ * `(f2 − f1)` small ≈ the equidistant border between cells → a thin sharp wall.
+ * Together they give the Dragon-stone "scale" pitting. Pure + seed-deterministic,
+ * same hashing as `vnoise3`.
+ */
+function worley3(
+  x: number,
+  y: number,
+  z: number,
+  seed: number,
+): { f1: number; f2: number } {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const zi = Math.floor(z);
+  let f1 = Infinity;
+  let f2 = Infinity;
+  for (let dz = -1; dz <= 1; dz++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const cx = xi + dx;
+        const cy = yi + dy;
+        const cz = zi + dz;
+        const px = cx + hash3(cx, cy, cz, seed);
+        const py = cy + hash3(cx, cy, cz, seed + 11);
+        const pz = cz + hash3(cx, cy, cz, seed + 23);
+        const ddx = px - x;
+        const ddy = py - y;
+        const ddz = pz - z;
+        const d = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
+        if (d < f1) {
+          f2 = f1;
+          f1 = d;
+        } else if (d < f2) {
+          f2 = d;
+        }
+      }
+    }
+  }
+  return { f1, f2 };
+}
+
 /** Build the un-deformed base mesh for a form. */
 function buildBase(primitive: RockPrimitive, detail: number): THREE.BufferGeometry {
   if (primitive === "torus") {
@@ -115,7 +159,10 @@ function buildBase(primitive: RockPrimitive, detail: number): THREE.BufferGeomet
     g.computeVertexNormals();
     return g;
   }
-  const g = new THREE.IcosahedronGeometry(0.5, Math.max(0, Math.min(3, detail)));
+  // Cap at 32 (not 3) so the sculpt path can request a dense base — three's
+  // icosa subdivides linearly (20·(detail+1)² tris), so a high number is needed
+  // for a smooth clay surface. Library rocks still pass detail ≤3 (unchanged).
+  const g = new THREE.IcosahedronGeometry(0.5, Math.max(0, Math.min(32, detail)));
   g.computeVertexNormals();
   return g;
 }
@@ -140,6 +187,11 @@ export interface RockOptions {
   veinColor?: string;
   /** Horizontal stratification (layered slabs). */
   strata?: boolean;
+  /** Dragon-scale pitting strength 0..1 — carves rounded craters (cellular
+   *  noise). 0 ⇒ no pitting (legacy rocks unchanged). */
+  pitting?: number;
+  /** Pit cell frequency (≈ craters across the rock). Bigger = smaller/denser. */
+  pitScale?: number;
 }
 
 /**
@@ -160,6 +212,8 @@ export function makeRockGeometry(
     tilt = 0,
     veinColor,
     strata = false,
+    pitting = 0,
+    pitScale = 5,
   }: RockOptions = {},
 ): THREE.BufferGeometry {
   const rand = mulberry32(seed);
@@ -208,6 +262,20 @@ export function makeRockGeometry(
       amp += band * 0.18;
     }
     amp += (rand() - 0.5) * jaggedness * 0.15; // grit
+
+    // Dragon-scale pitting: cellular noise carves rounded craters inward at cell
+    // centres + raises thin sharp walls at the borders. Own strength knob (not
+    // multiplied by jaggedness). ponytail: carve capped at 0.25·R so a deep pit
+    // can't invert faces — raise `detail` for crisper walls.
+    if (pitting > 0) {
+      const w = worley3(sx * pitScale, sy * pitScale, sz * pitScale, nseed + 31);
+      const bowl = Math.max(0, 0.55 - w.f1); // deep near a feature point
+      const wall = Math.max(0, 0.12 - (w.f2 - w.f1)); // ridge at the cell border
+      let pit = (-bowl * 1.7 + wall * 1.3) * pitting;
+      pit = Math.max(-0.25, Math.min(0.12, pit));
+      amp += pit;
+    }
+
     amp *= R;
 
     // icosa: displace radially (duplicated polyhedron verts share a direction →
@@ -323,6 +391,34 @@ function demoRock() {
       break;
     }
   if (same) throw new Error("two seeds produced identical rocks");
+
+  // Pitting carves inward overall (craters dominate the thin walls) → smaller
+  // mean radius from the centroid (translation-invariant) vs the un-pitted rock.
+  const meanR = (g: THREE.BufferGeometry) => {
+    const p = g.attributes.position.array as ArrayLike<number>;
+    const n = p.length / 3;
+    let cx = 0, cy = 0, cz = 0;
+    for (let i = 0; i < p.length; i += 3) {
+      cx += p[i]; cy += p[i + 1]; cz += p[i + 2];
+    }
+    cx /= n; cy /= n; cz /= n;
+    let s = 0;
+    for (let i = 0; i < p.length; i += 3)
+      s += Math.hypot(p[i] - cx, p[i + 1] - cy, p[i + 2] - cz);
+    return s / n;
+  };
+  const flat = makeRockGeometry(7, { pitting: 0 });
+  const pit = makeRockGeometry(7, { pitting: 0.9 });
+  for (const g of [flat, pit]) {
+    const p = g.attributes.position.array as ArrayLike<number>;
+    for (let i = 0; i < p.length; i++)
+      if (!Number.isFinite(p[i])) throw new Error("NaN vertex in pitted rock");
+  }
+  if (!(meanR(pit) < meanR(flat)))
+    throw new Error("pitting did not carve inward");
+  flat.dispose();
+  pit.dispose();
+
   console.log("proceduralRock demo OK");
 }
 

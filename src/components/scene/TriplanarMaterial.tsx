@@ -108,11 +108,24 @@ function patchShader(this: THREE.MeshStandardMaterial, shader: {
 
 export function TriplanarMaterial({
   surface,
+  albedo,
+  tileCm,
   color,
   roughness,
   seed = 0,
+  doubleSide = false,
 }: {
-  surface: HardscapeSurface;
+  /** Procedural PBR surface (generates albedo + normal + roughness). */
+  surface?: HardscapeSurface;
+  /** Render both faces — sculpted shells can be concave/self-intersecting, so
+   *  FrontSide culling would read as a hollow "see-through" rock. */
+  doubleSide?: boolean;
+  /** OR an uploaded image used as the albedo (tiled triplanar); no normal/
+   *  roughness map → the shader's #ifdefs fall back to flat normal + scalar
+   *  roughness automatically. Same wet-stone shader, your photo. */
+  albedo?: THREE.Texture | null;
+  /** Triplanar repeat (cm) for an uploaded albedo. Default 20. */
+  tileCm?: number;
   color: string;
   roughness: number;
   /** Per-piece seed → unique texture sample offset + brightness so identical
@@ -120,35 +133,52 @@ export function TriplanarMaterial({
   seed?: number;
 }) {
   const material = useMemo(() => {
-    const set = getTextureSet(surface); // cached singletons — don't dispose
+    let map: THREE.Texture;
+    let normalMap: THREE.Texture | undefined;
+    let roughnessMap: THREE.Texture | undefined;
+    let repeatCm: number;
+    if (albedo) {
+      map = albedo;
+      repeatCm = tileCm ?? 20;
+    } else if (surface) {
+      const set = getTextureSet(surface); // cached singletons — don't dispose
+      map = set.albedo;
+      normalMap = set.normal;
+      roughnessMap = set.roughness;
+      repeatCm = surface.tileCm;
+    } else {
+      // No surface and no upload — a plain material; color/roughness applied by
+      // the effect below. (Callers normally pass one or the other.)
+      return new THREE.MeshStandardMaterial();
+    }
     const mat = new THREE.MeshStandardMaterial({
-      map: set.albedo,
-      normalMap: set.normal,
-      roughnessMap: set.roughness,
+      map,
+      normalMap,
+      roughnessMap,
       normalScale: new THREE.Vector2(1.15, 1.15),
       metalness: 0,
       envMapIntensity: 1.25, // wet-stone sheen off the studio env
     });
-    mat.userData.triScale = 1 / surface.tileCm;
-    // Hash the seed into a stable offset (cm) + a ±8% shade.
+    mat.userData.triScale = 1 / repeatCm;
+    // Hash the seed into a stable offset (cm) + a ±8% shade. An uploaded photo
+    // keeps a neutral offset/shade (it's already unique to the piece).
     const r = (n: number) => {
       const t = Math.sin(seed * 12.9898 + n * 78.233) * 43758.5453;
       return t - Math.floor(t);
     };
-    mat.userData.triOffset = new THREE.Vector3(
-      r(1) * 200,
-      r(2) * 200,
-      r(3) * 200,
-    );
-    mat.userData.triShade = 0.92 + r(4) * 0.16;
+    mat.userData.triOffset = albedo
+      ? new THREE.Vector3()
+      : new THREE.Vector3(r(1) * 200, r(2) * 200, r(3) * 200);
+    mat.userData.triShade = albedo ? 1.0 : 0.92 + r(4) * 0.16;
     mat.onBeforeCompile = patchShader;
     return mat;
-  }, [surface, seed]);
+  }, [surface, albedo, tileCm, seed]);
 
   useEffect(() => {
     material.color.set(color);
     material.roughness = roughness;
-  }, [material, color, roughness]);
+    material.side = doubleSide ? THREE.DoubleSide : THREE.FrontSide;
+  }, [material, color, roughness, doubleSide]);
 
   // Dispose the material program on unmount; the textures are shared/cached.
   useEffect(() => () => material.dispose(), [material]);
