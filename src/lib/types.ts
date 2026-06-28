@@ -160,6 +160,9 @@ export interface HardscapeItem {
   /** Welded vertex count the buffer was authored against — a load-time guard so a
    *  param-lock mismatch decodes to "un-sculpted" rather than corrupting verts. */
   sculptN?: number;
+  /** Sculpt base origin: "model" ⇒ the welded+simplified uploaded glb (else a
+   *  procedural rock rebuilt from the locked params below). */
+  sculptBase?: "model";
 
   // ---- per-piece rock sculpt overrides (passed to makeRockGeometry) ----
   /** Base form (undefined ⇒ material default ⇒ boulder). */
@@ -219,8 +222,15 @@ export interface PlantHabit {
   heightGain: number;
   /** 0..1 — how much density/fill rises as it grows in (carpet/moss fill, epiphyte stays sparse). */
   fullnessGain: number;
-  /** false ⇒ leaf card width stays fixed while the stem grows (water lily). */
+  /** false ⇒ freezes leaf size as it grows (legacy water-lily flag → leafGain 0). */
   leafScalesWithHeight: boolean;
+  /**
+   * 0..1 — how much each leaf/sprig card GROWS IN SIZE with the slider,
+   * DECOUPLED from height (0 = leaf stays the same size, only height/fullness
+   * change; high = leaf gets visibly bigger/bushier). Pair a low `heightGain`
+   * with a high `leafGain` for "grows bushier, not taller". Defaults per form.
+   */
+  leafGain: number;
   /** Per-slider change scalar by growth rate (slow plants change less). */
   rateScalar: number;
 }

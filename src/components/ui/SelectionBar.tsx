@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
+import { HardscapeEditPanel } from "./HardscapeEditPanel";
 import { Btn } from "./primitives";
 import type { TransformMode } from "@/lib/types";
 
@@ -22,6 +24,9 @@ export function SelectionBar() {
   const duplicateHardscape = useStudioStore((s) => s.duplicateHardscape);
   const removeHardscape = useStudioStore((s) => s.removeHardscape);
   const deselectAll = useStudioStore((s) => s.deselectAll);
+  // Customize is selection-scoped, so it lives here (above this bar) rather than
+  // in the left rail. Toggle stays open across selecting different pieces.
+  const [showCustomize, setShowCustomize] = useState(false);
 
   if (mode !== "design" || !selectedId) return null;
   const item = hardscape.find((h) => h.id === selectedId);
@@ -29,7 +34,12 @@ export function SelectionBar() {
   const mat = getMaterial(item.materialId);
 
   return (
-    <div className="pointer-events-auto flex max-w-[calc(100vw-1rem)] flex-wrap items-center justify-center gap-2 rounded-lg border border-mist/10 bg-soil/80 px-3 py-2 text-mist shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md">
+    <div className="pointer-events-auto relative flex max-w-[calc(100vw-1rem)] flex-wrap items-center justify-center gap-2 rounded-lg border border-mist/10 bg-soil/80 px-3 py-2 text-mist shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md">
+      {showCustomize && (
+        <div className="calm-scroll absolute bottom-full left-1/2 mb-2 max-h-[60vh] w-72 max-w-[calc(100vw-1rem)] -translate-x-1/2 overflow-y-auto">
+          <HardscapeEditPanel />
+        </div>
+      )}
       <span className="mr-1 font-display text-xs text-moss">
         {mat?.label ?? "Item"}
       </span>
@@ -48,6 +58,9 @@ export function SelectionBar() {
         ))}
       </div>
       <span className="mx-1 h-5 w-px bg-mist/10" />
+      <Btn active={showCustomize} onClick={() => setShowCustomize((v) => !v)}>
+        ✎ Customize
+      </Btn>
       <Btn
         onClick={() =>
           updateHardscape(item.id, { seed: Math.floor(Math.random() * 1e9) })

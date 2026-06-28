@@ -62,6 +62,12 @@ design a hardscape + planting layout, orbit around it from any angle, then
     background and estimates **monocular depth** (Depth-Anything v2) to build a real
     3D mesh of the piece. First use downloads a small model.
   - Generated pieces persist as tiny grayscale height maps and rebuild on load.
+- **Use your own rock model** — upload one **`.glb`** at the top of the
+  **Hardscape** panel and **every rock** in the tank renders that real 3D shape
+  (each placed rock varies in size & rotation so they don't look cloned). Clear it
+  to return to the procedural rocks. The model is stored in your browser
+  (IndexedDB) and survives reloads. (`.glb` only; it's a global base, not saved
+  per-scape.)
 - **Light rig** — build the lighting above the tank in the **Light** panel:
   **add / remove fixtures** (Flood · Spot · RGB), each with its own intensity,
   **warmth** (color temperature) or RGB color, **X/Z position**, and on/off.
@@ -112,12 +118,22 @@ design a hardscape + planting layout, orbit around it from any angle, then
   **god-ray shaft** from its real position (tight & bright for a spot, broad for
   a flood, colored for RGB), and the **caustics**, water tint, and surface glare
   take their color/brightness from the active lights — all fading cooler with
-  depth (real water absorbs warm light first). Plus drifting **bubbles** and
-  **fish you control** (count, size, color palette, swim pattern —
-  school / calm / dart / scatter — and speed) that flock and turn smoothly off
-  the glass; plants sway. Stylized procedural fish by default, or drop a real
-  low-poly **`.glb` fish model** into `public/models/fish/` and pick it in the
-  Fish panel (see [public/ASSETS.md](public/ASSETS.md)).
+  depth (real water absorbs warm light first). A bolder, **murkier real-tank
+  look**: floor + mid-water **caustics**, **suspended particulate**, a
+  **shimmering animated surface**, an **orbit-tracking depth haze** (the back of
+  the scape reads murkier than the front), and subtle underwater **bloom +
+  vignette**. Plus drifting **bubbles** and **fish you control** (count, size,
+  color palette, swim pattern — school / calm / dart / scatter — and speed) that
+  flock and turn smoothly off the glass; plants sway. Stylized procedural fish by
+  default, or drop a real low-poly **`.glb` fish model** into
+  `public/models/fish/` and pick it in the Fish panel (see
+  [public/ASSETS.md](public/ASSETS.md)).
+- **Feed & follow the fish** — in the Fish panel's **Interact** row: **🍤 Feed**
+  shows a food-box on the cursor, and clicking the tank sprinkles sinking pellets
+  that a random **60–70%** of the fish swarm over and eat; **👆 Follow** makes a
+  random 60–70% of them trail your cursor. The subset is random each time (not the
+  same fish), so it reads natural. (Camera orbit pauses while either is on — toggle
+  it off to move the camera.)
 - **Gallery** — save scapes into a personal, contest-style **gallery**: press
   **Save** and the tank is flooded for the shot, so every tile is an underwater
   hero image. View your scapes two ways: a dark **Grid** of live 3D tiles, or a

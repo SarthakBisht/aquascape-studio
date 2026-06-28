@@ -27,16 +27,33 @@ const FULLNESS_GAIN: Record<PlantCategory, number> = {
   floating: 0.7,
 };
 
+// How much each leaf/sprig card grows IN SIZE with the slider, by silhouette —
+// DECOUPLED from height (extra leaf size as a fraction of its young size, so 0.5
+// ≈ +50% bigger leaves when grown in). Low for grass/stems (a blade lengthens,
+// it doesn't fatten — fixes leaves "ballooning" with height); higher for
+// broadleaf/rosette whose leaves genuinely enlarge.
+const LEAF_GAIN: Record<PlantForm, number> = {
+  stem: 0.1, // taller, not fatter
+  blade: 0.05, // grass blades barely widen
+  rosette: 0.5, // crypts/swords leaves enlarge
+  broadleaf: 0.6, // big leaves get bigger (low heightGain ⇒ bushier, not taller)
+  moss: 0.4, // mounds thicken
+  floating: 0.3,
+};
+
 // Slow growers move less of their range per slider tick.
 const RATE_SCALAR: Record<GrowthRate, number> = { slow: 0.5, medium: 0.8, fast: 1.0 };
 
 /** Resolve a species' growth/placement character (defaults derived, `habit` wins). */
 export function plantHabit(s: PlantSpecies): PlantHabit {
+  // Legacy flag: leafScalesWithHeight:false meant "freeze the leaf" → leafGain 0.
+  const leafScalesWithHeight = s.habit?.leafScalesWithHeight ?? true;
   const base: PlantHabit = {
     anchor: s.form === "floating" || s.category === "floating" ? "surface" : "substrate",
     heightGain: HEIGHT_GAIN[s.form],
     fullnessGain: FULLNESS_GAIN[s.category],
-    leafScalesWithHeight: true,
+    leafScalesWithHeight,
+    leafGain: leafScalesWithHeight ? LEAF_GAIN[s.form] : 0,
     rateScalar: RATE_SCALAR[s.growth],
   };
   return { ...base, ...s.habit };
@@ -55,6 +72,7 @@ function demo() {
   const epi = plantHabit(mk({ form: "broadleaf", category: "epiphyte", growth: "slow" }));
   const floater = plantHabit(mk({ form: "floating", category: "floating" }));
   const lily = plantHabit(mk({ form: "broadleaf", habit: { leafScalesWithHeight: false } }));
+  const bushy = plantHabit(mk({ form: "stem", habit: { heightGain: 0.2, leafGain: 0.8 } }));
 
   // a fast stem traverses more height than a fast carpet
   console.assert(stem.heightGain > carpet.heightGain, "stem should out-grow carpet");
@@ -64,6 +82,12 @@ function demo() {
   console.assert(floater.anchor === "surface", "floater anchors to surface");
   // override wins
   console.assert(lily.leafScalesWithHeight === false, "habit override applies");
+  // legacy "freeze leaf" flag zeroes leaf-size growth
+  console.assert(lily.leafGain === 0, "leafScalesWithHeight:false ⇒ leafGain 0");
+  // leaf-size growth is decoupled from height (bushy: little height, big leaf)
+  console.assert(bushy.heightGain === 0.2 && bushy.leafGain === 0.8, "leafGain decoupled from heightGain");
+  // a default stem barely grows its leaf (no ballooning)
+  console.assert(stem.leafGain < 0.2, "stem leaf stays small");
   console.log("plantHabit self-check passed");
 }
 

@@ -9,8 +9,6 @@ import { useStudioStore } from "@/store/useStudioStore";
  *
  * ponytail: the composer only mounts when the grade is non-neutral, so the
  * default render path (AA, transparent backdrop) stays byte-identical and free.
- * If grading needs to coexist with the transparent "none" backdrop, pass
- * EffectComposer alpha — not needed until someone grades that combo.
  */
 export function ColorGrade() {
   const g = useStudioStore((s) => s.grade);

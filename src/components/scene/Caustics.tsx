@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { useStudioStore } from "@/store/useStudioStore";
 import { attenuateForDepth, summarizeRig } from "@/lib/lightRig";
 import type { SubstrateConfig, TankDimensions } from "@/lib/types";
+import { useWaterTune } from "@/components/dev/WaterTune"; // TEMP WaterTune
 
 // Dancing light caustics on the substrate — a procedurally drawn caustic
 // network that drifts and breathes. Additive, so it just adds light. A flat
@@ -57,7 +58,8 @@ export function Caustics({
   // Caustics sit on the floor (deepest), so the rig color is strongly absorbed;
   // brightness tracks total intensity, and the pool drifts toward the lights.
   const tint = useMemo(() => attenuateForDepth(rig.color, 0.5), [rig.color]);
-  const baseOpacity = Math.min(0.34, 0.03 + rig.intensity * 0.12);
+  const causticsMax = useWaterTune((s) => s.causticsMax); // TEMP WaterTune
+  const baseOpacity = Math.min(causticsMax, 0.03 + rig.intensity * 0.09);
   const cx = THREE.MathUtils.clamp(rig.centerX * 0.3, -dims.width * 0.3, dims.width * 0.3);
   const cz = THREE.MathUtils.clamp(rig.centerZ * 0.3, -dims.depth * 0.3, dims.depth * 0.3);
 

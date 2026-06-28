@@ -298,7 +298,7 @@ function PreviewPatch({
     const youngH = minH * 0.55;
     const h = species
       ? plantHabit(species)
-      : { anchor: "substrate" as const, heightGain: 0.9, fullnessGain: 0.6, leafScalesWithHeight: true, rateScalar: 0.8 };
+      : { anchor: "substrate" as const, heightGain: 0.9, fullnessGain: 0.6, leafScalesWithHeight: true, leafGain: 0.1, rateScalar: 0.8 };
     const g = growth * h.rateScalar;
     const targetH = Math.min(
       (youngH + (maxH - youngH) * h.heightGain * g) * userScale,
@@ -307,8 +307,10 @@ function PreviewPatch({
     const waterline = dims.height * 0.96;
     const surface = h.anchor === "surface";
     const capAt = (y: number) => Math.max(2, waterline - y);
-    const widthOf = (hh: number) =>
-      h.leafScalesWithHeight ? hh : Math.max(youngH, minH) * userScale;
+    // Leaf size decoupled from height (mirror Plants.tsx / lib/plantHabit.ts).
+    const leafYoung = Math.max(youngH, minH) * userScale;
+    const leaf = leafYoung * (1 + h.leafGain * g);
+    const widthOf = (_hh: number) => leaf;
     const src = placement.blades ?? [];
     const visible = Math.max(
       5,

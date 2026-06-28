@@ -1,10 +1,21 @@
 "use client";
 
-import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  memo,
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as THREE from "three";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Clone, Outlines, TransformControls, useGLTF } from "@react-three/drei";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { SimplifyModifier } from "three/examples/jsm/modifiers/SimplifyModifier.js";
 import { useStudioStore } from "@/store/useStudioStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { getSurface } from "@/data/hardscapeTextures";
@@ -33,7 +44,7 @@ import {
 } from "@/lib/rockSculpt";
 import { useSurfaceTexture } from "@/lib/surfaceImage";
 import { TriplanarMaterial } from "./TriplanarMaterial";
-import type { HardscapeItem, Vec3 } from "@/lib/types";
+import type { HardscapeItem, HardscapeSurface, Vec3 } from "@/lib/types";
 
 // Translucent wireframe sphere showing the rock-sculpt brush footprint. Follows
 // the shared `hover` point imperatively (no React renders), non-raycastable so it
@@ -88,6 +99,216 @@ function HardscapeModel({ url }: { url: string }) {
   );
 }
 
+// Pull the boulder's geometry + baked material out of a loaded base .glb ONCE
+// (cached per scene; drei's useGLTF shares the scene across all rock instances).
+// Geometry is baked to world space then normalized to a unit footprint seated on
+// y=0 — same scale as procedural rocks, so item.scale + triplanar texel size land
+// identically. ponytail: takes the FIRST mesh (Poly Haven rocks are single-mesh);
+// merge for multi-mesh glbs later.
+const _baseCache = new WeakMap<
+  THREE.Object3D,
+  { geometry: THREE.BufferGeometry; material: THREE.Material }
+>();
+
+function extractBase(scene: THREE.Object3D) {
+  const hit = _baseCache.get(scene);
+  if (hit) return hit;
+  scene.updateWorldMatrix(true, true);
+  let src: THREE.Mesh | null = null;
+  scene.traverse((o) => {
+    if (!src && (o as THREE.Mesh).isMesh) src = o as THREE.Mesh;
+  });
+  const mesh = src as THREE.Mesh | null;
+  if (!mesh) {
+    const result = {
+      geometry: new THREE.BufferGeometry(),
+      material: new THREE.MeshStandardMaterial(),
+    };
+    _baseCache.set(scene, result);
+    return result;
+  }
+  const geometry = mesh.geometry.clone();
+  geometry.applyMatrix4(mesh.matrixWorld);
+  geometry.computeBoundingBox();
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  geometry.boundingBox!.getSize(size);
+  geometry.boundingBox!.getCenter(center);
+  const norm = 1 / (Math.max(size.x, size.y, size.z) || 1);
+  geometry.translate(-center.x, -center.y, -center.z);
+  geometry.scale(norm, norm, norm);
+  geometry.computeBoundingBox();
+  geometry.translate(0, -geometry.boundingBox!.min.y, 0);
+  const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+  const result = { geometry, material };
+  _baseCache.set(scene, result);
+  return result;
+}
+
+// Clone a source material so per-piece tint/roughness/side can't bleed across the
+// rocks that share a cached original; tint + dispose on change. Returns null when
+// there's no source (the caller renders a fallback). Shared by static model rocks
+// and sculpted-glb rocks.
+function useTintedClone(
+  src: THREE.Material | null | undefined,
+  color: string,
+  roughness: number,
+  doubleSide = false,
+): THREE.MeshStandardMaterial | null {
+  const mat = useMemo(
+    () => (src ? (src.clone() as THREE.MeshStandardMaterial) : null),
+    [src],
+  );
+  useEffect(() => () => mat?.dispose(), [mat]);
+  useEffect(() => {
+    if (!mat) return;
+    mat.color?.set(color);
+    if ("roughness" in mat) mat.roughness = roughness;
+    mat.side = doubleSide ? THREE.DoubleSide : THREE.FrontSide;
+  }, [mat, color, roughness, doubleSide]);
+  return mat;
+}
+
+// ---- glb hand-sculpt support ----
+// A welded, simplified base built ONCE from the uploaded glb (cached per scene),
+// shared read-only by every sculpted-glb rock; each rock clones `geoTemplate` for
+// its own live geometry and keeps its own displacement. Mirrors the procedural
+// sculpt base ({geo, basePos, adj, boundsR}) so the brush code is identical.
+type SculptTemplate = {
+  geoTemplate: THREE.BufferGeometry;
+  basePos: Float32Array;
+  adj: number[][];
+  boundsR: number;
+  /** The glb's baseColor texture, applied triplanar (world-space) so the sculpted
+   *  surface keeps its look without UVs (which we drop to weld crack-free). */
+  albedoMap: THREE.Texture | null;
+};
+const _sculptTplCache = new WeakMap<THREE.Object3D, SculptTemplate>();
+const SCULPT_TARGET_VERTS = 6000; // brush perf + dense int16 displacement ≤ ~35 KB/rock
+
+function buildSculptTemplate(scene: THREE.Object3D): SculptTemplate {
+  const hit = _sculptTplCache.get(scene);
+  if (hit) return hit;
+  const base = extractBase(scene); // normalized geometry (don't mutate — it's cached)
+  // Weld by POSITION ONLY → a watertight base that can't crack. A glb splits
+  // vertices at UV/normal seams; those coincident-but-separate verts tear apart
+  // when sculpted (the "cracks"). Dropping uv/normal/tangent lets mergeVertices
+  // fuse them into one surface; normals are recomputed below, and the texture is
+  // applied triplanar (world-space) so nothing relies on the dropped seams.
+  const stripped = base.geometry.clone();
+  stripped.deleteAttribute("uv");
+  stripped.deleteAttribute("uv1");
+  stripped.deleteAttribute("normal");
+  stripped.deleteAttribute("tangent");
+  // Simplify to a sculpt-friendly resolution. SimplifyModifier welds internally,
+  // is deterministic, and returns NON-indexed → re-weld for an adjacency index.
+  const welded0 = mergeVertices(stripped);
+  const wc = welded0.attributes.position.count;
+  welded0.dispose();
+  const remove = Math.max(0, wc - SCULPT_TARGET_VERTS);
+  const simplified =
+    remove > 0 ? new SimplifyModifier().modify(stripped, remove) : stripped.clone();
+  stripped.dispose();
+  const geoTemplate = mergeVertices(simplified); // weld by position → no cracks
+  simplified.dispose();
+  geoTemplate.computeVertexNormals();
+  geoTemplate.computeBoundingSphere();
+  // Neutral mottle so the no-surface fallback path isn't black.
+  const count = geoTemplate.attributes.position.count;
+  const colors = new Float32Array(count * 3).fill(0.82);
+  geoTemplate.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const tpl: SculptTemplate = {
+    geoTemplate,
+    basePos: (geoTemplate.attributes.position.array as Float32Array).slice(),
+    adj: buildAdjacency(geoTemplate.index!.array, count),
+    boundsR: geoTemplate.boundingSphere?.radius ?? 1,
+    albedoMap: (base.material as THREE.MeshStandardMaterial).map ?? null,
+  };
+  _sculptTplCache.set(scene, tpl);
+  return tpl;
+}
+
+// Holds the shared sculpt template (null until a glb is loaded + built). Provided
+// by Hardscape, read by every HardscapeMesh.
+const BaseSculptContext = createContext<SculptTemplate | null>(null);
+
+// Loads the glb once and builds the shared sculpt template (off the render path so
+// it never suspends the non-model pieces). Mounted only when a sculpted-glb rock
+// actually exists, so the (heavy, one-time) simplify is deferred until first use.
+function BaseSculptLoader({
+  url,
+  onReady,
+}: {
+  url: string;
+  onReady: (t: SculptTemplate | null) => void;
+}) {
+  const { scene } = useGLTF(url);
+  const tpl = useMemo(() => buildSculptTemplate(scene), [scene]);
+  useEffect(() => {
+    onReady(tpl);
+    return () => onReady(null);
+  }, [tpl, onReady]);
+  return null;
+}
+
+// A rock rendered from the uploaded base .glb. Reuses the SAME material branch as
+// procedural rocks (uploaded photo / library surface / fallback), so per-piece
+// customization works on the boulder; the fallback here is the glb's own baked
+// material (cloned + tinted) instead of flat vertex colors. dispose={null} keeps
+// the shared cached geometry alive when one instance unmounts.
+function ModelRock({
+  url,
+  shape,
+  color,
+  roughness,
+  seed,
+  isSelected,
+  customTex,
+  surface,
+  textureScaleCm,
+}: {
+  url: string;
+  /** Per-axis squash/stretch applied to the inner mesh (the group keeps a uniform
+   *  scale so the transform gizmo stays uniform). */
+  shape: Vec3;
+  color: string;
+  roughness: number;
+  seed: number;
+  isSelected: boolean;
+  customTex: THREE.Texture | null;
+  surface: HardscapeSurface | undefined;
+  textureScaleCm: number | undefined;
+}) {
+  const { scene } = useGLTF(url);
+  const base = useMemo(() => extractBase(scene), [scene]);
+  // glb's own baked material (cloned + tinted) is the default look.
+  const ownMat = useTintedClone(base.material, color, roughness);
+
+  return (
+    <mesh geometry={base.geometry} scale={shape} castShadow receiveShadow dispose={null}>
+      {customTex ? (
+        <TriplanarMaterial
+          albedo={customTex}
+          tileCm={textureScaleCm ?? 20}
+          color={color}
+          roughness={roughness}
+          seed={seed}
+        />
+      ) : surface ? (
+        <TriplanarMaterial
+          surface={surface}
+          color={color}
+          roughness={roughness}
+          seed={seed}
+        />
+      ) : ownMat ? (
+        <primitive object={ownMat} attach="material" />
+      ) : null}
+      {isSelected && <Outlines thickness={3} color="#b8cf90" />}
+    </mesh>
+  );
+}
+
 // Memoized so a transform drag (which replaces only the moved item) re-renders
 // just that piece, not every rock/wood in the tank.
 const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeItem }) {
@@ -100,20 +321,32 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
   const selectedId = useStudioStore((s) => s.selectedId);
   const transformMode = useStudioStore((s) => s.transformMode);
   const tool = useStudioStore((s) => s.tool);
+  const baseRockModelUrl = useStudioStore((s) => s.baseRockModelUrl);
   const sculptRadius = useStudioStore((s) => s.sculptRadius);
   const selectItem = useStudioStore((s) => s.selectItem);
   const updateHardscape = useStudioStore((s) => s.updateHardscape);
   const beginTxn = useStudioStore((s) => s.beginTxn);
   const endTxn = useStudioStore((s) => s.endTxn);
+  const baseSculpt = useContext(BaseSculptContext);
   const { camera, gl } = useThree();
 
   const material = getMaterial(item.materialId);
   const editable = mode === "design";
   const isSelected = editable && selectedId === item.id;
 
+  // A user-uploaded base .glb replaces ALL plain rocks' shape (one base for all).
+  // Wood + user-made shapes (mesh/sculpt/drift) keep their own geometry.
+  // ponytail: base-model rocks use the glb's own materials; per-piece surface/
+  // color override on models is deferred.
+  const useModel =
+    !!baseRockModelUrl &&
+    item.kind === "rock" &&
+    (item.source === "procedural" || item.source == null);
+
   // Per-piece sculpt overrides win, then the material default, then a kind default.
   // (mesh source → built async below from a stored height field.)
   const procGeometry = useMemo(() => {
+    if (useModel) return null;
     if (item.source === "mesh" || item.source === "sculpt") return null;
     if (item.source === "drift") {
       return makeDriftwoodGeometry(item.seed, item.drift ?? DEFAULT_DRIFT);
@@ -134,6 +367,7 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
       pitScale: item.pitScale ?? def.pitScale,
     });
   }, [
+    useModel,
     item.source,
     item.seed,
     item.kind,
@@ -191,6 +425,18 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
   // base position/normal snapshots so final = base + displacement is recomputable.
   const sculpt = useMemo(() => {
     if (item.source !== "sculpt") return null;
+    // Sculpt the uploaded glb instead of a procedural rock: clone the shared
+    // simplified+welded template for this piece's live geometry; basePos/adj/
+    // boundsR are shared read-only (identical brush code downstream).
+    if (item.sculptBase === "model") {
+      if (!baseSculpt) return null; // template not built yet (loads async)
+      return {
+        geo: baseSculpt.geoTemplate.clone(),
+        basePos: baseSculpt.basePos,
+        adj: baseSculpt.adj,
+        boundsR: baseSculpt.boundsR,
+      };
+    }
     const isWood = item.kind === "wood";
     const def = getRockForm(item.form ?? material?.form);
     const raw = makeRockGeometry(item.seed, {
@@ -219,7 +465,8 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
       boundsR: geo.boundingSphere?.radius ?? 1,
     };
   }, [
-    item.source, item.seed, item.kind, item.form, item.jaggedness, item.detail,
+    item.source, item.sculptBase, baseSculpt,
+    item.seed, item.kind, item.form, item.jaggedness, item.detail,
     item.shape, item.taper, item.flat, item.tilt, item.veinColor, item.strata,
     item.pitting, item.pitScale,
     material?.form, material?.shape, material?.jaggedness, material?.veinColor,
@@ -376,8 +623,10 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
         : procGeometry;
 
   // Surface: a procedural HARDSCAPE_SURFACES id, or a "custom:" id → an uploaded
-  // image from the store, loaded as a tiled triplanar albedo.
-  const textureId = item.textureId ?? material?.textureId;
+  // image from the store, loaded as a tiled triplanar albedo. Model rocks ignore
+  // the material's *default* textureId so a fresh one keeps the glb's own baked
+  // texture (only an explicit per-piece textureId overrides it).
+  const textureId = useModel ? item.textureId : item.textureId ?? material?.textureId;
   const isCustomTex = !!textureId && textureId.startsWith("custom:");
   const customUrl = useStudioStore((s) =>
     isCustomTex ? s.customSurfaces[textureId!] : undefined,
@@ -386,9 +635,18 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
   const surface = isCustomTex ? undefined : getSurface(textureId ?? "");
   const hasTex = isCustomTex ? !!customTex : !!surface;
   // With a textured surface the texture carries the stone's colour, so the
-  // per-piece tint defaults to white (a multiply) — set a color to recolour.
-  const color = item.color ?? (hasTex ? "#ffffff" : material?.color ?? "#7a7a7a");
+  // per-piece tint defaults to white (a multiply) — set a color to recolour. A
+  // model rock's fallback is the glb's own baked texture → also default white.
+  const color = useModel || (item.source === "sculpt" && item.sculptBase === "model")
+    ? item.color ?? "#ffffff"
+    : item.color ?? (hasTex ? "#ffffff" : material?.color ?? "#7a7a7a");
   const roughness = item.roughness ?? material?.roughness ?? 0.9;
+
+  // A sculpted glb rock keeps the boulder's texture by default, sampled triplanar
+  // (world-space) since the watertight weld dropped UVs; null for every other
+  // piece, which falls through to surface / vertex-colour.
+  const isModelSculpt = item.source === "sculpt" && item.sculptBase === "model";
+  const sculptAlbedo = isModelSculpt ? baseSculpt?.albedoMap ?? null : null;
 
   const writeBack = () => {
     if (!obj) return;
@@ -423,7 +681,21 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
           selectItem(item.id);
         }}
       >
-        {material?.model ? (
+        {useModel && baseRockModelUrl ? (
+          <Suspense fallback={null}>
+            <ModelRock
+              url={baseRockModelUrl}
+              shape={item.shape ?? [1, 1, 1]}
+              color={color}
+              roughness={roughness}
+              seed={item.seed}
+              isSelected={isSelected}
+              customTex={isCustomTex ? customTex : null}
+              surface={surface}
+              textureScaleCm={item.textureScaleCm}
+            />
+          </Suspense>
+        ) : material?.model ? (
           <Suspense fallback={null}>
             <HardscapeModel url={material.model} />
           </Suspense>
@@ -445,6 +717,15 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
                 roughness={roughness}
                 seed={item.seed}
                 doubleSide={item.source === "sculpt"}
+              />
+            ) : sculptAlbedo ? (
+              <TriplanarMaterial
+                albedo={sculptAlbedo}
+                tileCm={item.textureScaleCm ?? 20}
+                color={color}
+                roughness={roughness}
+                seed={item.seed}
+                doubleSide
               />
             ) : (
               <meshStandardMaterial
@@ -479,11 +760,26 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
 
 export function Hardscape() {
   const hardscape = useStudioStore((s) => s.hardscape);
+  const baseRockModelUrl = useStudioStore((s) => s.baseRockModelUrl);
+  const [tpl, setTpl] = useState<SculptTemplate | null>(null);
+  const onReady = useCallback((t: SculptTemplate | null) => setTpl(t), []);
+  // Build the (one-time, heavy) sculpt template only once a glb rock is actually
+  // being sculpted — not on every base-model upload.
+  const needsSculptTpl =
+    !!baseRockModelUrl && hardscape.some((h) => h.sculptBase === "model");
+
   return (
     <group>
-      {hardscape.map((item) => (
-        <HardscapeMesh key={item.id} item={item} />
-      ))}
+      {needsSculptTpl && baseRockModelUrl && (
+        <Suspense fallback={null}>
+          <BaseSculptLoader url={baseRockModelUrl} onReady={onReady} />
+        </Suspense>
+      )}
+      <BaseSculptContext.Provider value={needsSculptTpl ? tpl : null}>
+        {hardscape.map((item) => (
+          <HardscapeMesh key={item.id} item={item} />
+        ))}
+      </BaseSculptContext.Provider>
     </group>
   );
 }

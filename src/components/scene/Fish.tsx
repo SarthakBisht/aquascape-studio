@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { Suspense, useEffect, useMemo, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Clone, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { useStudioStore } from "@/store/useStudioStore";
 import { getFishModel } from "@/data/fishModels";
+import { pointer, food, getFoodEpoch } from "@/lib/fishInteraction";
 import type {
   FishConfig,
   FishPalette,
@@ -30,6 +31,16 @@ const PALETTES: Record<FishPalette, string[]> = {
 const UP = new THREE.Vector3(0, 1, 0);
 const FORWARD = new THREE.Vector3(1, 0, 0);
 
+// Feed / follow seek tuning.
+const SEEK = 5; // attraction force toward food / cursor (overrides wander+flock)
+const EAT_R = 2.5; // cm — within this a participating fish "eats" a pellet
+const SCARE = 7; // flee force when the cursor passes near a fish (idle mode)
+const SCARE_R = 16; // cm — cursor-ray proximity that spooks a fish
+
+const _ray = new THREE.Raycaster();
+const _ndc = new THREE.Vector2();
+const _near = new THREE.Vector3();
+
 // reusable temporaries (single-threaded frame loop)
 const _force = new THREE.Vector3();
 const _c = new THREE.Vector3();
@@ -45,6 +56,8 @@ interface Boid {
   sizeVar: number;
   colorIndex: number;
   burst: number; // dart timer
+  partake: boolean; // joins the current feed/follow event (re-rolled per event)
+  retreat: number; // s left of darting away after a bite (hit-and-run feeding)
 }
 
 function Fish3D({
@@ -137,6 +150,10 @@ export function Fish({
 }) {
   const storeFish = useStudioStore((s) => s.fish);
   const cfg = fish ?? storeFish;
+  // Feed / follow only applies to the live editor (not gallery previews that
+  // pass an explicit `fish`).
+  const interact = useStudioStore((s) => s.fishInteract);
+  const fishInteract = fish ? "none" : interact;
   // ponytail: no hard cap — count comes from the volume-scaled slider
   // (fishCountLimit). O(n²) boid neighbour loop, fine for low hundreds; add a
   // spatial grid if a giant tank chugs.
@@ -169,14 +186,58 @@ export function Fish({
       sizeVar: 0.75 + Math.random() * 0.45,
       colorIndex: i,
       burst: Math.random() * 3,
+      partake: false,
+      retreat: 0,
     }));
   }, [count, bounds]);
+
+  // Re-roll which fish join the swarm on each feed drop / when Follow turns on.
+  const epochRef = useRef(-1);
+  const prevInteractRef = useRef<typeof fishInteract>("none");
+
+  // Track the cursor in NDC so idle fish can shy away from the pointer ray.
+  const { camera, gl } = useThree();
+  const ndcActive = useRef(false);
+  useEffect(() => {
+    const el = gl.domElement;
+    const move = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      _ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      _ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      ndcActive.current = true;
+    };
+    const leave = () => {
+      ndcActive.current = false;
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerleave", leave);
+    return () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerleave", leave);
+    };
+  }, [gl]);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
     const t = state.clock.elapsedTime;
     const { min, max } = bounds;
     const w = PATTERN[cfg.pattern];
+
+    // Fresh random 60–70% subset per event (new food, or Follow just armed).
+    const ep = getFoodEpoch();
+    const reroll =
+      (fishInteract === "feed" && ep !== epochRef.current) ||
+      (fishInteract === "follow" && prevInteractRef.current !== "follow");
+    if (reroll) {
+      const thr = 0.6 + Math.random() * 0.1;
+      for (const bb of boids) bb.partake = Math.random() < thr;
+    }
+    epochRef.current = ep;
+    prevInteractRef.current = fishInteract;
+
+    // Idle (not feeding/following): fish shy away from the cursor ray.
+    const doScare = fishInteract === "none" && ndcActive.current;
+    if (doScare) _ray.setFromCamera(_ndc, camera);
 
     boids.forEach((b, i) => {
       _force.set(0, 0, 0);
@@ -238,11 +299,61 @@ export function Fish({
         speedMul *= b.burst < 0.5 ? 2.2 : 1;
       }
 
-      b.dir.addScaledVector(_force, dt * w.turn);
-      b.dir.y = THREE.MathUtils.clamp(b.dir.y, -0.35, 0.35);
+      // feed / follow: participating fish steer hard toward the food or cursor.
+      // Feeding is hit-and-run — bite, then dart away for a beat before going
+      // back — so they never pile up and hang on one spot.
+      let seeking = false;
+      if (b.partake && fishInteract === "feed") {
+        if (b.retreat > 0) {
+          b.retreat -= dt; // mid-flee: momentum + wander carry it off, then return
+        } else {
+          let bestD = Infinity;
+          let bx = 0, by = 0, bz = 0, best: (typeof food)[number] | null = null;
+          for (const p of food) {
+            if (p.eaten) continue;
+            const dx = p.x - b.pos.x, dy = p.y - b.pos.y, dz = p.z - b.pos.z;
+            const dd = dx * dx + dy * dy + dz * dz;
+            if (dd < bestD) { bestD = dd; bx = dx; by = dy; bz = dz; best = p; }
+          }
+          if (best) {
+            seeking = true;
+            const dist = Math.sqrt(bestD) || 1;
+            _tmp.set(bx / dist, by / dist, bz / dist);
+            _force.addScaledVector(_tmp, SEEK);
+            if (dist < EAT_R) {
+              best.eaten = true; // FoodParticles culls it → reads as eaten
+              b.retreat = 0.7 + Math.random() * 1.6; // desync'd flee+return
+              // dart away from the food (and a touch upward)
+              b.dir.set(b.pos.x - best.x, Math.abs(b.pos.y - best.y) + 1, b.pos.z - best.z).normalize();
+            }
+          }
+        }
+      } else if (b.partake && fishInteract === "follow" && pointer.active) {
+        seeking = true;
+        _tmp.set(pointer.x - b.pos.x, pointer.y - b.pos.y, pointer.z - b.pos.z);
+        const dist = _tmp.length() || 1;
+        _force.addScaledVector(_tmp.divideScalar(dist), SEEK);
+      }
+
+      // idle scare: if the cursor ray passes close, bolt away from it
+      if (doScare) {
+        const dRay = _ray.ray.distanceToPoint(b.pos);
+        if (dRay < SCARE_R) {
+          _ray.ray.closestPointToPoint(b.pos, _near);
+          _tmp.copy(b.pos).sub(_near);
+          const len = _tmp.length() || 1;
+          _force.addScaledVector(_tmp.divideScalar(len), SCARE * (1 - dRay / SCARE_R));
+        }
+      }
+
+      // seeking fish turn sharper, may rise/dive freely, and rush a little
+      const turn = seeking ? w.turn * 2.2 : w.turn;
+      b.dir.addScaledVector(_force, dt * turn);
+      b.dir.y = THREE.MathUtils.clamp(b.dir.y, seeking ? -0.9 : -0.35, seeking ? 0.9 : 0.35);
       b.dir.normalize();
 
-      const speed = b.baseSpeed * cfg.speed * speedMul;
+      const speed =
+        b.baseSpeed * cfg.speed * speedMul * (seeking || b.retreat > 0 ? 1.35 : 1);
       b.pos.addScaledVector(b.dir, speed * dt);
       b.pos.clamp(min, max);
 

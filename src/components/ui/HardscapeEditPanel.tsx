@@ -114,6 +114,7 @@ export function HardscapeEditPanel() {
   const sculptStrength = useStudioStore((s) => s.sculptStrength);
   const setSculptStrength = useStudioStore((s) => s.setSculptStrength);
   const setCustomSurface = useStudioStore((s) => s.setCustomSurface);
+  const baseRockModelUrl = useStudioStore((s) => s.baseRockModelUrl);
 
   if (mode !== "design" || !selectedId) return null;
   const item = hardscape.find((h) => h.id === selectedId);
@@ -122,13 +123,19 @@ export function HardscapeEditPanel() {
   const mat = getMaterial(item.materialId);
   const isWood = item.kind === "wood";
   const source = item.source ?? "procedural";
+  // A base .glb replaces this rock's shape → the shape/form/sculpt controls are
+  // inert; only color/surface/roughness apply.
+  const usingModel =
+    !!baseRockModelUrl && item.kind === "rock" && source === "procedural";
 
   // Effective values (override → material → form default → kind default).
   const form: RockForm = item.form ?? mat?.form ?? "boulder";
   const def = getRockForm(form);
   const color = item.color ?? mat?.color ?? (isWood ? "#6b4f34" : "#7a7a7a");
   const roughness = item.roughness ?? mat?.roughness ?? 0.9;
-  const shape: Vec3 = item.shape ?? mat?.shape ?? def.shape;
+  // Model rocks default to undistorted [1,1,1] (the glb already has its shape);
+  // the W/H/D sliders then squash/stretch it.
+  const shape: Vec3 = item.shape ?? (usingModel ? [1, 1, 1] : mat?.shape ?? def.shape);
   const jaggedness =
     item.jaggedness ?? mat?.jaggedness ?? (isWood ? 0.22 : def.jaggedness);
   const detail = item.detail ?? (isWood ? 1 : def.detail);
@@ -180,6 +187,12 @@ export function HardscapeEditPanel() {
 
   return (
     <Panel title="Customize">
+      {usingModel && (
+        <p className="mb-3 rounded bg-moss/10 px-2 py-1 text-[10px] leading-snug text-moss">
+          Shape comes from your base model — tune color & surface (None = the
+          model&apos;s own texture).
+        </p>
+      )}
       {/* Color tint */}
       <div className="mb-3 flex items-center gap-2">
         <span className="w-16 shrink-0 text-[10px] text-stone">Color</span>
@@ -225,8 +238,8 @@ export function HardscapeEditPanel() {
             Photo ✓
           </Btn>
         )}
-        <label className="cursor-pointer rounded border border-mist/15 px-2 py-0.5 text-[10px] text-stone hover:text-mist">
-          ＋ Upload
+        <label className="cursor-pointer rounded border border-moss/40 bg-moss/10 px-2 py-0.5 text-[10px] text-moss hover:bg-moss/20">
+          ＋ Upload photo
           <input
             type="file"
             accept="image/*"
@@ -249,7 +262,7 @@ export function HardscapeEditPanel() {
         </div>
       )}
 
-      {source === "procedural" && (
+      {source === "procedural" && !usingModel && (
         <div className="mb-3">
           <div className="mb-1 flex items-center justify-between">
             <span className="text-[10px] uppercase tracking-wide text-stone">
@@ -270,14 +283,27 @@ export function HardscapeEditPanel() {
               </Btn>
             ))}
           </div>
-          <button
-            onClick={() => convertToSculpt(item.id)}
-            title="Switch to free 3D sculpting (the sliders give way to a brush)"
-            className="mt-2 w-full rounded border border-moss/40 bg-moss/10 py-1 text-[10px] text-moss hover:bg-moss/20"
-          >
-            ✋ Sculpt this shape (free 3D)
-          </button>
         </div>
+      )}
+
+      {/* Model rocks: squash/stretch the glb per-axis (no procedural geometry). */}
+      {usingModel && (
+        <div className="mb-3 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wide text-stone">Shape</div>
+          <EditSlider label="Width" value={shape[0]} min={0.2} max={3} step={0.05} onChange={(v) => setShape(0, v)} />
+          <EditSlider label="Height" value={shape[1]} min={0.2} max={3} step={0.05} onChange={(v) => setShape(1, v)} />
+          <EditSlider label="Depth" value={shape[2]} min={0.2} max={3} step={0.05} onChange={(v) => setShape(2, v)} />
+        </div>
+      )}
+
+      {source === "procedural" && (
+        <button
+          onClick={() => convertToSculpt(item.id)}
+          title="Switch to free 3D sculpting (the sliders give way to a brush)"
+          className="mb-3 w-full rounded border border-moss/40 bg-moss/10 py-1 text-[10px] text-moss hover:bg-moss/20"
+        >
+          ✋ Sculpt this shape (free 3D)
+        </button>
       )}
 
       {source === "sculpt" && (
@@ -362,7 +388,7 @@ export function HardscapeEditPanel() {
           onChange={(v) => set({ roughness: v })}
         />
 
-        {source === "procedural" && (
+        {source === "procedural" && !usingModel && (
           <>
             <EditSlider label="Width" value={shape[0]} min={0.2} max={3} step={0.05} onChange={(v) => setShape(0, v)} />
             <EditSlider label="Height" value={shape[1]} min={0.2} max={3} step={0.05} onChange={(v) => setShape(1, v)} />

@@ -5,7 +5,6 @@ import { useStudioStore } from "@/store/useStudioStore";
 import { IconTab } from "./primitives";
 import { TankPanel } from "./TankPanel";
 import { HardscapePalette } from "./HardscapePalette";
-import { HardscapeEditPanel } from "./HardscapeEditPanel";
 import { PlantBrowser } from "./PlantBrowser";
 import { DrawPanel } from "./DrawPanel";
 import { BackgroundPanel } from "./BackgroundPanel";
@@ -95,13 +94,8 @@ export function LeftRail({
           className="calm-scroll flex w-64 flex-col gap-3 overflow-y-auto pr-0.5"
         >
         {active === "tank" && <TankPanel />}
-        {active === "hardscape" && (
-          <>
-            <HardscapePalette />
-            {/* self-hides until a piece is selected */}
-            <HardscapeEditPanel />
-          </>
-        )}
+        {/* Customize moved to the selection footer (SelectionBar). */}
+        {active === "hardscape" && <HardscapePalette />}
         {active === "plants" && <PlantBrowser />}
         {active === "terrain" && <DrawPanel />}
         {active === "scene" && (

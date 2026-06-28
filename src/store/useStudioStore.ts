@@ -31,6 +31,7 @@ import type {
 import { fieldGrid, makeLinearField, sculptField } from "@/lib/terrain";
 import { fishCountLimit, growthLimit } from "@/lib/units";
 import { cleanScape as runCleanScape } from "@/lib/autoScape";
+import { putBaseModel, getBaseModel, clearBaseModel } from "@/lib/modelStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
 import { getRockForm } from "@/data/rockForms";
 import { resolveSubstrate } from "@/data/substrates";
@@ -226,6 +227,8 @@ interface StudioState {
   customMeshes: Record<string, CustomMesh>;
   /** Uploaded hardscape surface images (custom id → data URL), used by triplanar. */
   customSurfaces: Record<string, string>;
+  /** Persisted flag: a base rock .glb lives in IndexedDB (rehydrated to a url on load). */
+  hasBaseRockModel: boolean;
 
   // ---- persisted view settings ----
   mode: ViewMode;
@@ -270,6 +273,10 @@ interface StudioState {
   sculptStrength: number;
   placingMaterialId: string | null; // rock armed for ghost placement (transient)
   placingSeed: number; // shape seed shared by ghost + committed rock (transient)
+  /** Underwater fish interaction: drop food / follow the cursor. Transient. */
+  fishInteract: "none" | "feed" | "follow";
+  /** Object URL for the uploaded base rock .glb (transient — rebuilt from IDB each session). */
+  baseRockModelUrl: string | null;
 
   // ---- actions ----
   setTank: (dims: TankDimensions) => void;
@@ -299,6 +306,11 @@ interface StudioState {
   clearCustomMesh: (id: string) => void;
   setCustomSurface: (id: string, dataUrl: string) => void;
   clearCustomSurface: (id: string) => void;
+  /** Upload a .glb → IndexedDB; every rock then renders it (varied by transform). */
+  setBaseRockModel: (file: File) => Promise<void>;
+  clearBaseRockModel: () => Promise<void>;
+  /** On mount: if a base model is flagged, rebuild its object URL from IndexedDB. */
+  rehydrateBaseRockModel: () => Promise<void>;
   beginPlacing: (materialId: string) => void;
   cancelPlacing: () => void;
 
@@ -312,6 +324,7 @@ interface StudioState {
   setTool: (
     tool: "select" | "plant" | "ground" | "place" | "sculpt" | "trim" | "rocksculpt",
   ) => void;
+  setFishInteract: (m: "none" | "feed" | "follow") => void;
   setSculptDir: (dir: 1 | -1) => void;
   setSculptBrush: (b: StudioState["sculptBrush"]) => void;
   setSculptRadius: (v: number) => void;
@@ -378,6 +391,7 @@ export const useStudioStore = create<StudioState>()(
       customPlants: [],
       customMeshes: {},
       customSurfaces: {},
+      hasBaseRockModel: false,
 
       mode: "design",
       quality: "medium",
@@ -408,6 +422,8 @@ export const useStudioStore = create<StudioState>()(
       sculptStrength: 0.5,
       placingMaterialId: null,
       placingSeed: 0,
+      fishInteract: "none",
+      baseRockModelUrl: null,
 
       setTank: (dims) => {
         get().pushHistory();
@@ -446,13 +462,16 @@ export const useStudioStore = create<StudioState>()(
         const mat = getMaterial(materialId);
         if (!mat) return;
         get().pushHistory();
+        // Rocks get a random Y-spin + ±15% scale so a shared base .glb (one shape
+        // for all rocks) doesn't read as a stamped clone.
+        const isRock = mat.kind === "rock";
         const item: HardscapeItem = {
           id: genId(),
           materialId,
           kind: mat.kind,
           position,
-          rotation: [0, 0, 0],
-          scale: mat.kind === "wood" ? 14 : 10,
+          rotation: [0, isRock ? Math.random() * Math.PI * 2 : 0, 0],
+          scale: isRock ? 10 * (0.85 + Math.random() * 0.3) : 14,
           seed: seed ?? Math.floor(Math.random() * 1e9),
         };
         set((s) => ({
@@ -517,11 +536,16 @@ export const useStudioStore = create<StudioState>()(
       },
       convertToSculpt: (id) => {
         get().pushHistory();
+        const baseModel = get().baseRockModelUrl;
         set((s) => ({
           hardscape: s.hardscape.map((h) => {
             if (h.id !== id) return h;
-            // Only procedural rocks become sculptable (drift/mesh/model keep theirs).
+            // Already a non-procedural source keeps its own geometry.
             if (h.source && h.source !== "procedural") return h;
+            // A model rock sculpts the uploaded glb mesh (not a procedural one).
+            if (baseModel && h.kind === "rock") {
+              return { ...h, source: "sculpt" as const, sculptBase: "model" as const };
+            }
             const mat = getMaterial(h.materialId);
             const isWood = h.kind === "wood";
             const def = getRockForm(h.form ?? mat?.form);
@@ -562,6 +586,31 @@ export const useStudioStore = create<StudioState>()(
           delete next[id];
           return { customSurfaces: next };
         }),
+
+      setBaseRockModel: async (file) => {
+        await putBaseModel(file);
+        const url = URL.createObjectURL(file);
+        set((s) => {
+          if (s.baseRockModelUrl) URL.revokeObjectURL(s.baseRockModelUrl);
+          return { baseRockModelUrl: url, hasBaseRockModel: true };
+        });
+      },
+      clearBaseRockModel: async () => {
+        await clearBaseModel();
+        set((s) => {
+          if (s.baseRockModelUrl) URL.revokeObjectURL(s.baseRockModelUrl);
+          return { baseRockModelUrl: null, hasBaseRockModel: false };
+        });
+      },
+      rehydrateBaseRockModel: async () => {
+        if (!get().hasBaseRockModel || get().baseRockModelUrl) return;
+        const blob = await getBaseModel();
+        if (!blob) {
+          set({ hasBaseRockModel: false }); // flag stale (cleared elsewhere)
+          return;
+        }
+        set({ baseRockModelUrl: URL.createObjectURL(blob) });
+      },
 
       beginPlacing: (materialId) =>
         set({
@@ -615,6 +664,7 @@ export const useStudioStore = create<StudioState>()(
             ? { activePlantId: null, activeGround: null, placingMaterialId: null }
             : {}),
         }),
+      setFishInteract: (m) => set({ fishInteract: m }),
       setBrush: (patch) => set((s) => ({ brush: { ...s.brush, ...patch } })),
       setSculptDir: (dir) => set({ sculptDir: dir }),
       setSculptBrush: (b) => set({ sculptBrush: b }),
@@ -751,7 +801,7 @@ export const useStudioStore = create<StudioState>()(
         set((s) => ({ ground: [...s.ground, patch] }));
       },
 
-      setMode: (mode) => set({ mode, selectedId: null }),
+      setMode: (mode) => set({ mode, selectedId: null, fishInteract: "none" }),
       setQuality: (q) => set({ quality: q }),
       toggleGuides: () => set((s) => ({ showGuides: !s.showGuides })),
       setGuides: (patch) => set((s) => ({ guides: { ...s.guides, ...patch } })),
@@ -947,6 +997,8 @@ export const useStudioStore = create<StudioState>()(
         // Persist only referenced custom assets (unreferenced uploads/meshes
         // would otherwise pile up and exceed the localStorage quota).
         ...pruneCustomAssets(s),
+        // Base .glb bytes live in IndexedDB; only the flag persists here.
+        hasBaseRockModel: s.hasBaseRockModel,
         mode: s.mode,
         quality: s.quality,
         showGuides: s.showGuides,

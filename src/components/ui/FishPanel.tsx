@@ -61,10 +61,42 @@ export function FishPanel() {
   const fish = useStudioStore((s) => s.fish);
   const setFish = useStudioStore((s) => s.setFish);
   const tank = useStudioStore((s) => s.tank);
+  const interact = useStudioStore((s) => s.fishInteract);
+  const setInteract = useStudioStore((s) => s.setFishInteract);
   const maxCount = fishCountLimit(tank);
 
   return (
     <Panel title="Fish">
+      <div className="mb-1 text-[10px] uppercase tracking-wide text-stone">
+        Interact
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Btn
+          active={interact === "feed"}
+          onClick={() => setInteract(interact === "feed" ? "none" : "feed")}
+          title="Drop food where you click — most of the fish swarm to eat it"
+        >
+          🍤 Feed
+        </Btn>
+        <Btn
+          active={interact === "follow"}
+          onClick={() => setInteract(interact === "follow" ? "none" : "follow")}
+          title="Move the cursor over the tank — most of the fish trail it"
+        >
+          👆 Follow
+        </Btn>
+      </div>
+      {interact !== "none" && (
+        <p className="mt-1 text-[10px] leading-tight text-stone">
+          {interact === "feed"
+            ? "Click in the tank to drop food. Orbit is paused — toggle off to move the camera."
+            : "Fish follow your cursor. Orbit is paused — toggle off to move the camera."}
+        </p>
+      )}
+
+      <div className="mt-3 mb-1 text-[10px] uppercase tracking-wide text-stone">
+        Shoal
+      </div>
       <div className="space-y-1.5">
         <Slider label="Count" value={Math.min(fish.count, maxCount)} min={0} max={maxCount} step={1} suffix="" onChange={(v) => setFish({ count: v })} />
         <Slider label="Size" value={fish.size} min={0.4} max={2.5} step={0.1} suffix="×" onChange={(v) => setFish({ size: v })} />

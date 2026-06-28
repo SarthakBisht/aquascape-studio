@@ -82,6 +82,7 @@ const DEFAULT_HABIT: PlantHabit = {
   heightGain: 0.9,
   fullnessGain: 0.6,
   leafScalesWithHeight: true,
+  leafGain: 0.1,
   rateScalar: 0.8,
 };
 
@@ -160,13 +161,18 @@ const Patch = memo(function Patch({ placement }: { placement: PlantPlacement }) 
     const surface = habit.anchor === "surface";
     const capAt = (surfaceWorldY: number) =>
       Math.max(2, waterline - surfaceWorldY);
-    // Lily-type: leaf width fixed (≈ youngH) so the stem climbs without the
-    // leaf ballooning. Otherwise width tracks height (b.h * widthRatio applied
-    // at compose time, so w carries only the cm scale here).
-    // ponytail: single-billboard proxy — a tall card that doesn't widen reads
-    // as a rising stem; swap for stem+pad geometry if you want a true lily.
-    const widthOf = (h: number) =>
-      habit.leafScalesWithHeight ? h : Math.max(youngH, minH) * userScale;
+    // Leaf/sprig card SIZE (cm scale; widthRatio applied at compose). Decoupled
+    // from height via habit.leafGain: height is driven by heightGain, so a tall
+    // stem no longer balloons its leaf, and a low-height/high-leafGain plant
+    // grows bushier (bigger leaf) instead of taller. leafGain 0 = leaf frozen.
+    // ponytail: single-billboard proxy — a card taller than its leaf reads as a
+    // rising stem; swap for stem+pad geometry if you want a true lily.
+    const leafYoung = Math.max(youngH, minH) * userScale;
+    const leaf = leafYoung * (1 + habit.leafGain * g);
+    // A real photo card must keep its image aspect (width tracks height) or it
+    // stretches vertically as the plant gains height. The procedural silhouette
+    // keeps the decoupled leaf size so stems lengthen without ballooning.
+    const widthOf = hasImage ? (h: number) => h : (_h: number) => leaf;
 
     // Preferred path: blades pre-sampled onto the real surface at paint time.
     if (placement.blades && placement.blades.length) {
@@ -215,6 +221,7 @@ const Patch = memo(function Patch({ placement }: { placement: PlantPlacement }) 
     growth,
     userScale,
     tankHeight,
+    hasImage,
   ]);
 
   useLayoutEffect(() => {

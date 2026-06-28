@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 // Tiny shared UI atoms. Panels read as quiet soil-toned cards with hairline
 // warm borders — present, but never competing with the scape.
@@ -196,8 +196,27 @@ export function Disclosure({
   align?: "left" | "right";
   className?: string;
 }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  // Native <details> stays open until the summary is re-clicked; close it when
+  // the user clicks anywhere outside (and on Escape).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onDown = (e: Event) => {
+      if (el.open && !el.contains(e.target as Node)) el.open = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") el.open = false;
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
   return (
-    <details className={`group relative ${className}`}>
+    <details ref={ref} className={`group relative ${className}`}>
       <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md bg-mist/[0.06] px-2.5 py-1.5 text-xs font-light text-mist/85 transition-colors hover:bg-mist/[0.12] [&::-webkit-details-marker]:hidden">
         {summary}
       </summary>

@@ -39,6 +39,50 @@ function Group({ kind, title }: { kind: HardscapeKind; title: string }) {
   );
 }
 
+// Upload one .glb → every rock renders that shape (varied per-piece). Clear to
+// return to the procedural rock library.
+function BaseRockModelRow() {
+  const url = useStudioStore((s) => s.baseRockModelUrl);
+  const setModel = useStudioStore((s) => s.setBaseRockModel);
+  const clearModel = useStudioStore((s) => s.clearBaseRockModel);
+  return (
+    <div className="mb-2 rounded-md border border-moss/30 bg-moss/[0.06] px-2 py-1.5">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[10px] font-medium text-moss">
+          Base rock model (.glb)
+        </span>
+        {url && (
+          <button
+            onClick={() => clearModel()}
+            className="text-[10px] text-stone hover:text-rose-300"
+          >
+            ✕ Clear
+          </button>
+        )}
+      </div>
+      {url ? (
+        <p className="text-[10px] leading-snug text-stone">
+          All rocks use your model — each placed rock varies in size & rotation.
+        </p>
+      ) : (
+        <label className="block cursor-pointer rounded border border-dashed border-mist/25 px-2 py-1.5 text-center text-[10px] text-stone hover:text-mist">
+          Upload a .glb — every rock will use its shape
+          <input
+            type="file"
+            accept=".glb,model/gltf-binary"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setModel(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      )}
+    </div>
+  );
+}
+
 export function HardscapePalette() {
   const tool = useStudioStore((s) => s.tool);
   const cancelPlacing = useStudioStore((s) => s.cancelPlacing);
@@ -47,6 +91,7 @@ export function HardscapePalette() {
   const [photoOpen, setPhotoOpen] = useState(false);
   return (
     <Panel title="Hardscape">
+      <BaseRockModelRow />
       <Group kind="rock" title="Rocks" />
       <Group kind="wood" title="Driftwood" />
 

@@ -13,6 +13,7 @@ import { CalculatorOverlay } from "./ui/CalculatorOverlay";
 import { LeftRail, type Section } from "./ui/LeftRail";
 import { SelectionBar } from "./ui/SelectionBar";
 import { MobileNotice } from "./ui/MobileNotice";
+import { WaterTunePanel } from "./dev/WaterTune"; // TEMP WaterTune
 import { endStroke } from "@/lib/surfaceInteraction";
 import type { Quality } from "@/lib/types";
 
@@ -27,20 +28,18 @@ export function Studio() {
   const quality = useStudioStore((s) => s.quality);
   const mode = useStudioStore((s) => s.mode);
   const zen = useStudioStore((s) => s.zen);
-  const selectedId = useStudioStore((s) => s.selectedId);
   const empty = useStudioStore(
     (s) => s.hardscape.length === 0 && s.plants.length === 0,
   );
   const galleryOpen = useLibraryStore((s) => s.galleryOpen);
+  const fishInteract = useStudioStore((s) => s.fishInteract);
   const [calcOpen, setCalcOpen] = useState(false);
   const [section, setSection] = useState<Section>("tank");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const foodCursorRef = useRef<HTMLDivElement | null>(null);
 
-  // Keep the active section in step with what the user is doing: selecting a
-  // piece reveals its Customize controls; flooding the tank surfaces Fish.
-  useEffect(() => {
-    if (selectedId && mode === "design") setSection("hardscape");
-  }, [selectedId, mode]);
+  // Flooding the tank surfaces the Fish section. (Customize now lives in the
+  // selection footer, so selecting a piece no longer switches the left rail.)
   useEffect(() => {
     setSection((cur) =>
       mode === "underwater" ? "fish" : cur === "fish" ? "tank" : cur,
@@ -50,6 +49,11 @@ export function Studio() {
   // WebGL only mounts on the client — avoids SSR/window issues.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Rebuild the base rock .glb object URL from IndexedDB (no-op if none saved).
+  useEffect(() => {
+    useStudioStore.getState().rehydrateBaseRockModel();
+  }, []);
 
   // End a draw stroke whenever the pointer is released, even off the canvas.
   useEffect(() => {
@@ -146,8 +150,16 @@ export function Studio() {
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-sumi">
+    <div
+      className="relative h-full w-full overflow-hidden bg-sumi"
+      onMouseMove={(e) => {
+        // move the food-box cursor follower without a React re-render
+        const el = foodCursorRef.current;
+        if (el) el.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+      }}
+    >
       <Canvas
+        className={fishInteract === "feed" ? "cursor-none" : undefined}
         dpr={DPR[quality]}
         gl={{ preserveDrawingBuffer: true, antialias: true }}
         camera={{
@@ -204,6 +216,20 @@ export function Studio() {
       </div>
 
       <MobileNotice />
+
+      {mode === "underwater" && <WaterTunePanel />} {/* TEMP WaterTune */}
+
+      {/* food-box that rides the cursor while feeding (positioned in onMouseMove) */}
+      {fishInteract === "feed" && (
+        <div
+          ref={foodCursorRef}
+          className="pointer-events-none fixed left-0 top-0 z-50 will-change-transform"
+        >
+          <div className="-translate-x-1/2 -translate-y-1/2 text-2xl drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+            🥡
+          </div>
+        </div>
+      )}
 
       {galleryOpen && <Gallery />}
       {calcOpen && <CalculatorOverlay onClose={() => setCalcOpen(false)} />}

@@ -93,13 +93,15 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
      · LeftRail (`ui/LeftRail.tsx`) — a thin vertical **icon tab rail** + ONE
        active section panel (replaces the old 7-panel scroll stack, killing the
        scroll-to-find problem). Sections: Tank (`TankPanel`) · Hardscape
-       (`HardscapePalette` + `HardscapeEditPanel`, the latter self-hides until a
-       piece is selected) · Plants (`PlantBrowser`) · Terrain (`DrawPanel`) · Scene
+       (`HardscapePalette`) · Plants (`PlantBrowser`) · Terrain (`DrawPanel`) · Scene
        (`BackgroundPanel`+`LightPanel`+`GradePanel`) · Fish (`FishPanel`,
        enabled only underwater). Active section = local `useState` in `Studio.tsx`
-       (transient, mirrors `calcOpen`); effects **auto-switch** it (select a piece →
-       Hardscape · enter underwater → Fish). The right column is gone → more canvas.
-     · SelectionBar (bottom-center, when a piece is selected).
+       (transient, mirrors `calcOpen`); an effect **auto-switches** to Fish on
+       entering underwater. The right column is gone → more canvas.
+     · SelectionBar (bottom-center, when a piece is selected) — Move/Rotate/Scale ·
+       Regenerate · Duplicate · Remove · Done, plus a **✎ Customize** toggle that
+       pops `HardscapeEditPanel` above the bar (the per-piece look editor is
+       selection-scoped, so it lives with the selection footer, not the left rail).
      Shared atoms in `ui/primitives.tsx`: `Btn`/`Swatch` + `SectionLabel` ·
      `Field` · `Select` (dark `colorScheme`) · `Slider` (value readout) ·
      `IconTab` (rail, `role="tab"`) · `Disclosure` (the `<details>` popover).
@@ -134,7 +136,42 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   `customPlantTextures`), `customSurfaces` (custom-id → uploaded surface image data
   URL, used by triplanar — mirrors `customPlantTextures`), and `customPlants`
   (user-created `PlantSpecies[]`, each
-  paired with a `customPlantTextures` image — the "add your own plant" library). A persist `version`/`migrate` (now v7) maps the legacy
+  paired with a `customPlantTextures` image — the "add your own plant" library).
+  **Base rock model:** upload one `.glb` (`HardscapePalette` → `setBaseRockModel`)
+  and **every plain rock renders that shape** instead of procedural noise (varied
+  per-piece by a random Y-spin + ±15% scale seeded in `addHardscape`); wood and
+  user-made `mesh`/`sculpt`/`drift` pieces are untouched. The renderer reuses the
+  existing `HardscapeModel`/`useGLTF` path (`Hardscape.tsx`, `useModel` gate). The
+  multi-MB `.glb` is **too big for localStorage**, so its bytes live in
+  **IndexedDB** (`src/lib/modelStore.ts`, native API, one key); only a
+  `hasBaseRockModel` flag persists, and `rehydrateBaseRockModel()` (called on
+  mount in `Studio.tsx`) rebuilds the transient `baseRockModelUrl` object URL each
+  session. **Per-piece customization on model rocks:** `ModelRock` (in
+  `Hardscape.tsx`) extracts the glb's first mesh geometry (baked + normalized,
+  cached per scene in a `WeakMap`) and renders it through the **same `<mesh>` +
+  material branch as procedural rocks**, so each placed rock takes its own
+  uploaded photo / library `surface` / color tint / roughness; a fresh model rock
+  defaults to the glb's **own baked material** (cloned + tinted per piece). Model
+  rocks resolve `textureId` from `item.textureId` only (ignoring the material
+  default) so the boulder texture shows until explicitly overridden.
+  **Shape of model rocks:** (1) **squash/stretch** — `item.shape` Vec3 (W/H/D
+  sliders) applied as a non-uniform scale on `ModelRock`'s inner `<mesh>` (the
+  group keeps a uniform scale so the transform gizmo stays uniform); (2)
+  **hand-sculpt** — `convertToSculpt` on a model rock sets `source:"sculpt"` +
+  `sculptBase:"model"`, and a shared `BaseSculptLoader`/`BaseSculptContext` builds
+  the glb into a **`SimplifyModifier`-simplified** (~6k-vert) sculpt base **once**
+  (cached per scene, lazy — only when a glb rock is first sculpted), which the
+  existing rock-sculpt brush stack then drives unchanged (each rock clones the
+  template; shares basePos/adj read-only). The base is **welded by POSITION only**
+  (uv/normal/tangent dropped before `mergeVertices`) so the glb's UV/normal seams
+  can't tear into cracks when brushed → a watertight surface; the boulder texture
+  is then applied **triplanar** (world-space `albedoMap`, no UVs). `HardscapeEditPanel` shows W/H/D + the
+  Sculpt button for model rocks (Form picker stays hidden). ponytail ceilings:
+  `.glb` only (no `.obj`); ONE global base model (not per-scape — saved scapes/
+  exports don't embed it); **single-mesh glb** (first mesh only); glb-sculpt base
+  is **re-derived by deterministic simplify** each load (only the dense int16
+  displacement persists, ~35 KB/rock) — a three.js upgrade could shift
+  `SimplifyModifier` output and misalign a stored sculpt → re-sculpt if so. A persist `version`/`migrate` (now v7) maps the legacy
   `grownIn` boolean → `growth`, seeds a default light rig, and defaults
   `customMeshes`/`customSurfaces`. **Both `getLayout()` (export) and `partialize`
   (the localStorage autosave) prune custom assets to referenced-only** via
@@ -445,12 +482,25 @@ only the pieces left outside the tank — nothing added or moved), a **growth sl
 scaling plant height + fullness), a global **color grade**
 (brightness/contrast/saturation/tint post-process, captured in screenshots),
 quality slider, orbit
-camera, **underwater mode** (subtle tank-only water whose **god-ray shafts,
+camera, **underwater mode** (tank-only water whose **god-ray shafts,
 caustics, water tint + surface glare are all driven by the light rig** — per
 fixture type/color/position/intensity, with depth-based warm absorption via
-`src/lib/lightRig.ts`; animated caustics + bubbles, and **fish you control** — count/size/colour
-palette/swim pattern [school·calm·dart·scatter]/speed — that flock and steer off
-the glass), a **saved-scape gallery** (Save the current scape — auto-flooded
+`src/lib/lightRig.ts`; animated caustics [floor + mid-water sheets] + bubbles +
+**suspended particulate** (drei `Sparkles`), an **animated/shimmering surface**, an
+**orbit-tracking depth-haze fog** (`HazeFog` in `Water.tsx` — linear fog whose near/far
+ramp across the tank's depth from the camera so the back reads murkier than the front)
+and **underwater post-FX** (`ColorGrade` mounts one EffectComposer with Bloom on bright
+glints + Vignette; Bloom skipped on low quality), plus **fish you control** —
+count/size/colour palette/swim pattern [school·calm·dart·scatter]/speed — that flock and
+steer off the glass. **Fish interactions** (`fishInteract` transient store flag, set from
+the Fish panel **Interact** toggles): **🍤 Feed** (a food-box cursor; click the tank →
+`addFood` drops sinking pellets and a random **60–70%** of fish swarm + "eat" them) and
+**👆 Follow** (a random 60–70% trail the cursor). Both reuse the `hover`-style singleton
+pattern in `src/lib/fishInteraction.ts` (`pointer`/`food` mutated on events, read in
+`useFrame` — no React renders) + an opacity-0 raycast box in `FishInteraction.tsx`; the
+participant subset is **re-rolled per event** (new drop / Follow-on) so it's never the same
+fish. Orbit is paused while a fish interaction is armed (`tool === "select" &&
+fishInteract === "none"`)), a **saved-scape gallery** (Save the current scape — auto-flooded
 underwater for the tile — into a local, dark contest-style gallery grid; reopen
 restores its full look, New starts a blank slate), export/import + screenshot.
 

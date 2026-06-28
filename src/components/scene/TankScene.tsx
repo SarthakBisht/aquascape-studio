@@ -17,6 +17,7 @@ import { Water } from "./Water";
 import { Caustics } from "./Caustics";
 import { Bubbles } from "./Bubbles";
 import { Fish } from "./Fish";
+import { FishInteraction } from "./FishInteraction";
 import { CompositionGuides } from "./CompositionGuides";
 import { ColorGrade } from "./ColorGrade";
 
@@ -29,6 +30,7 @@ export function TankScene() {
   const showPlants = useStudioStore((s) => s.showPlants);
   const guides = useStudioStore((s) => s.guides);
   const tool = useStudioStore((s) => s.tool);
+  const fishInteract = useStudioStore((s) => s.fishInteract);
 
   const underwater = mode === "underwater";
   const center = tankCenter(tank);
@@ -55,6 +57,7 @@ export function TankScene() {
       {underwater && <Water dims={tank} />}
       {underwater && <Bubbles dims={tank} substrate={substrate} />}
       {underwater && <Fish dims={tank} substrate={substrate} />}
+      {underwater && <FishInteraction dims={tank} substrate={substrate} />}
       <GlassTank dims={tank} />
       {showGuides && mode === "design" && (
         <CompositionGuides dims={tank} config={guides} />
@@ -65,7 +68,7 @@ export function TankScene() {
       {/* Disable orbit while a brush is active so dragging draws, not rotates. */}
       <OrbitControls
         makeDefault
-        enabled={tool === "select"}
+        enabled={tool === "select" && fishInteract === "none"}
         target={center}
         enableDamping
         maxPolarAngle={Math.PI / 2 + 0.2}
