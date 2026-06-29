@@ -6,6 +6,7 @@ import { HARDSCAPE_SURFACES } from "@/data/hardscapeTextures";
 import { ROCK_FORM_IDS, ROCK_FORMS, getRockForm } from "@/data/rockForms";
 import { DEFAULT_DRIFT } from "@/lib/driftwood";
 import { loadSurfaceImage } from "@/lib/surfaceImage";
+import { isModelRock } from "@/lib/hardscapeModel";
 import { Panel, Btn } from "./primitives";
 import type { HardscapeItem, RockForm, Vec3 } from "@/lib/types";
 
@@ -115,6 +116,7 @@ export function HardscapeEditPanel() {
   const setSculptStrength = useStudioStore((s) => s.setSculptStrength);
   const setCustomSurface = useStudioStore((s) => s.setCustomSurface);
   const baseRockModelUrl = useStudioStore((s) => s.baseRockModelUrl);
+  const useModelForAllRocks = useStudioStore((s) => s.useModelForAllRocks);
 
   if (mode !== "design" || !selectedId) return null;
   const item = hardscape.find((h) => h.id === selectedId);
@@ -123,10 +125,9 @@ export function HardscapeEditPanel() {
   const mat = getMaterial(item.materialId);
   const isWood = item.kind === "wood";
   const source = item.source ?? "procedural";
-  // A base .glb replaces this rock's shape → the shape/form/sculpt controls are
-  // inert; only color/surface/roughness apply.
-  const usingModel =
-    !!baseRockModelUrl && item.kind === "rock" && source === "procedural";
+  // This rock renders the uploaded .glb → procedural form/shape controls are inert;
+  // show W/H/D squash + Sculpt instead.
+  const usingModel = isModelRock(item, !!baseRockModelUrl, useModelForAllRocks);
 
   // Effective values (override → material → form default → kind default).
   const form: RockForm = item.form ?? mat?.form ?? "boulder";
@@ -296,7 +297,7 @@ export function HardscapeEditPanel() {
         </div>
       )}
 
-      {source === "procedural" && (
+      {(source === "procedural" || source === "model") && (
         <button
           onClick={() => convertToSculpt(item.id)}
           title="Switch to free 3D sculpting (the sliders give way to a brush)"

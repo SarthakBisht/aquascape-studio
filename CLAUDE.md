@@ -73,7 +73,7 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        │               DEFAULT via material.textureId, or an uploaded image) +
        │               per-piece color tint, or flat vertex-color fallback; + gizmo
        │               / rock-sculpt brush (rocksculpt tool)
-       ├─ PlacementGhost (cursor-following rock ghost while placing)
+       ├─ PlacementGhost (spec-driven cursor ghost; commits via `commitPlacement`)
        ├─ PlantTools (tweezers + ghost sprig when planting / scissors when trimming)
        ├─ Plants     → Patch (instanced crossed-billboard cards, paint-to-fill)
        ├─ Caustics · Water · Bubbles · Fish                 (underwater mode)
@@ -98,10 +98,13 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
        enabled only underwater). Active section = local `useState` in `Studio.tsx`
        (transient, mirrors `calcOpen`); an effect **auto-switches** to Fish on
        entering underwater. The right column is gone → more canvas.
-     · SelectionBar (bottom-center, when a piece is selected) — Move/Rotate/Scale ·
-       Regenerate · Duplicate · Remove · Done, plus a **✎ Customize** toggle that
-       pops `HardscapeEditPanel` above the bar (the per-piece look editor is
-       selection-scoped, so it lives with the selection footer, not the left rail).
+     · SelectionBar (**right-docked panel**, when a piece is selected) —
+       Move/Rotate/Scale · ✎ Customize toggle · Regenerate · Duplicate · Remove · ✕
+       Done, with `HardscapeEditPanel` rendered **inline below** in the same right
+       column (Customize defaults open). Right column = contextual/temporary
+       (selection), left rail = always-available sections — keeping the per-piece
+       look editor on the screen edge so it never covers the centered rock (the old
+       bottom-center popover did).
      Shared atoms in `ui/primitives.tsx`: `Btn`/`Swatch` + `SectionLabel` ·
      `Field` · `Select` (dark `colorScheme`) · `Slider` (value readout) ·
      `IconTab` (rail, `role="tab"`) · `Disclosure` (the `<details>` popover).
@@ -131,17 +134,22 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   (+1 raise soil / push rock out, −1 carve), the **rock-sculpt brush** state
   (`sculptBrush` draw|smooth|grab|flatten|pinch, `sculptRadius` 0..1, `sculptStrength`
   0..1), and the placement pair
-  `placingMaterialId`/`placingSeed`. Also persisted: `customMeshes`
+  `placing` (a `PlacementSpec` = what the cursor is armed to drop)/`placingSeed`.
+  Also persisted: `customMeshes`
   (meshId → grayscale height PNG for generated pieces, mirrors
   `customPlantTextures`), `customSurfaces` (custom-id → uploaded surface image data
   URL, used by triplanar — mirrors `customPlantTextures`), and `customPlants`
   (user-created `PlantSpecies[]`, each
   paired with a `customPlantTextures` image — the "add your own plant" library).
-  **Base rock model:** upload one `.glb` (`HardscapePalette` → `setBaseRockModel`)
-  and **every plain rock renders that shape** instead of procedural noise (varied
-  per-piece by a random Y-spin + ±15% scale seeded in `addHardscape`); wood and
-  user-made `mesh`/`sculpt`/`drift` pieces are untouched. The renderer reuses the
-  existing `HardscapeModel`/`useGLTF` path (`Hardscape.tsx`, `useModel` gate). The
+  **Base rock model:** upload one `.glb` in the palette's **Yours** section
+  (`setBaseRockModel`). It becomes a **placeable stamp** — placing it makes **that
+  piece** a model rock (`source:"model"`); other rocks stay procedural. A persisted
+  **`useModelForAllRocks`** toggle (opt-in, default false) additionally renders the
+  glb for every procedural rock. The shared predicate **`isModelRock(item, hasModel,
+  allRocks)`** (`src/lib/hardscapeModel.ts`) is the single source of truth for the
+  render `useModel`, the Customize `usingModel`, and `convertToSculpt`. Placed rocks
+  are varied by a Y-spin + ±15% scale jitter (in `addHardscape`/`addGeneratedHardscape`).
+  The
   multi-MB `.glb` is **too big for localStorage**, so its bytes live in
   **IndexedDB** (`src/lib/modelStore.ts`, native API, one key); only a
   `hasBaseRockModel` flag persists, and `rehydrateBaseRockModel()` (called on
@@ -237,6 +245,18 @@ page.tsx (server) → <Studio/> (client, mounted-gate)
   whole look (blank slate), not just contents. ponytail ceiling: thumbnails live
   in localStorage (~5 MB) — fine for dozens of scapes, move to IndexedDB for
   hundreds.
+- **Add-hardscape flow (unified "Browse → Place → Tweak"):** `HardscapePalette`
+  is one **stamp gallery** — sections **Rocks** (library materials + Slab/Spire/
+  Arch/Bowl forms) · **Wood** (materials + Driftwood generator) · **Yours** (the
+  uploaded `.glb` as a placeable stamp + the upload control + "Use for all rocks")
+  · **Create** (Draw→3D / Photo→3D modals). **Every stamp arms the SAME
+  ghost-place gesture**: a click calls `beginPlacing(spec: PlacementSpec)`
+  (`material`/`form`/`drift`/`model`), `PlacementGhost` previews + tracks the
+  cursor, and a scene click runs **`commitPlacement(pos)`** (dispatches to
+  `addHardscape`/`addGeneratedHardscape` with the cursor position + a fresh seed).
+  Placement **stays armed** so you can drop several (Esc/Done cancels); the gizmo
+  is hidden while `tool==="place"` so repeat clicks aren't intercepted. (Draw/Photo
+  stay modal create-then-drop — the AI mesh doesn't exist until processing ends.)
 - **Hardscape geometry by `source`** — every `HardscapeItem` carries optional
   per-piece overrides (back-compat: undefined = legacy procedural). Edits all go
   through the existing `updateHardscape(id, patch)`; generated pieces are created

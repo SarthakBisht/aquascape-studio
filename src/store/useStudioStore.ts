@@ -18,6 +18,7 @@ import type {
   HardscapeItem,
   Layout,
   LightFixture,
+  PlacementSpec,
   PlantPlacement,
   PlantSpecies,
   Quality,
@@ -29,6 +30,8 @@ import type {
   ViewMode,
 } from "@/lib/types";
 import { fieldGrid, makeLinearField, sculptField } from "@/lib/terrain";
+import { DEFAULT_DRIFT } from "@/lib/driftwood";
+import { isModelRock } from "@/lib/hardscapeModel";
 import { fishCountLimit, growthLimit } from "@/lib/units";
 import { cleanScape as runCleanScape } from "@/lib/autoScape";
 import { putBaseModel, getBaseModel, clearBaseModel } from "@/lib/modelStore";
@@ -229,6 +232,9 @@ interface StudioState {
   customSurfaces: Record<string, string>;
   /** Persisted flag: a base rock .glb lives in IndexedDB (rehydrated to a url on load). */
   hasBaseRockModel: boolean;
+  /** Opt-in: render the base .glb for EVERY procedural rock (not just pieces
+   *  placed as a model). Default false → uploading a model doesn't reskin all. */
+  useModelForAllRocks: boolean;
 
   // ---- persisted view settings ----
   mode: ViewMode;
@@ -271,8 +277,8 @@ interface StudioState {
   sculptRadius: number;
   /** Rock brush strength 0..1. Transient. */
   sculptStrength: number;
-  placingMaterialId: string | null; // rock armed for ghost placement (transient)
-  placingSeed: number; // shape seed shared by ghost + committed rock (transient)
+  placing: PlacementSpec | null; // what the cursor is armed to drop (transient)
+  placingSeed: number; // shape seed shared by ghost + committed piece (transient)
   /** Underwater fish interaction: drop food / follow the cursor. Transient. */
   fishInteract: "none" | "feed" | "follow";
   /** Object URL for the uploaded base rock .glb (transient — rebuilt from IDB each session). */
@@ -286,15 +292,23 @@ interface StudioState {
   setAmbience: (color: string) => void;
 
   addHardscape: (materialId: string, position?: Vec3, seed?: number) => void;
-  /** Add a non-library piece (driftwood generator / drawn / depth-photo mesh). Returns its id. */
+  /** Add a non-library piece (driftwood generator / drawn / depth-photo mesh /
+   *  placed .glb model). Returns its id. `position`/`seed` default center/random. */
   addGeneratedHardscape: (
     partial: Pick<HardscapeItem, "kind" | "source"> &
       Partial<
         Pick<
           HardscapeItem,
-          "materialId" | "drift" | "meshId" | "color" | "textureId" | "scale" | "form"
+          | "materialId"
+          | "drift"
+          | "meshId"
+          | "color"
+          | "textureId"
+          | "scale"
+          | "form"
+          | "position"
         >
-      >,
+      > & { seed?: number },
   ) => string;
   updateHardscape: (id: string, patch: Partial<HardscapeItem>) => void;
   removeHardscape: (id: string) => void;
@@ -306,12 +320,16 @@ interface StudioState {
   clearCustomMesh: (id: string) => void;
   setCustomSurface: (id: string, dataUrl: string) => void;
   clearCustomSurface: (id: string) => void;
-  /** Upload a .glb → IndexedDB; every rock then renders it (varied by transform). */
+  /** Upload a .glb → IndexedDB; rocks placed from the "Yours" stamp render it. */
   setBaseRockModel: (file: File) => Promise<void>;
   clearBaseRockModel: () => Promise<void>;
   /** On mount: if a base model is flagged, rebuild its object URL from IndexedDB. */
   rehydrateBaseRockModel: () => Promise<void>;
-  beginPlacing: (materialId: string) => void;
+  setUseModelForAllRocks: (v: boolean) => void;
+  /** Arm the cursor to drop a stamp (ghost-place). */
+  beginPlacing: (spec: PlacementSpec) => void;
+  /** Drop the armed stamp at a world point; stays armed so you can place more. */
+  commitPlacement: (pos: Vec3) => void;
   cancelPlacing: () => void;
 
   selectItem: (id: string | null) => void;
@@ -392,6 +410,7 @@ export const useStudioStore = create<StudioState>()(
       customMeshes: {},
       customSurfaces: {},
       hasBaseRockModel: false,
+      useModelForAllRocks: false,
 
       mode: "design",
       quality: "medium",
@@ -420,7 +439,7 @@ export const useStudioStore = create<StudioState>()(
       sculptBrush: "draw",
       sculptRadius: 0.35,
       sculptStrength: 0.5,
-      placingMaterialId: null,
+      placing: null,
       placingSeed: 0,
       fishInteract: "none",
       baseRockModelUrl: null,
@@ -474,37 +493,31 @@ export const useStudioStore = create<StudioState>()(
           scale: isRock ? 10 * (0.85 + Math.random() * 0.3) : 14,
           seed: seed ?? Math.floor(Math.random() * 1e9),
         };
-        set((s) => ({
-          hardscape: [...s.hardscape, item],
-          selectedId: item.id,
-          placingMaterialId: null,
-          tool: s.tool === "place" ? "select" : s.tool,
-        }));
+        // Stay armed (tool/placing untouched) so the cursor can drop more; the
+        // ghost rolls a fresh seed in commitPlacement.
+        set((s) => ({ hardscape: [...s.hardscape, item], selectedId: item.id }));
       },
       addGeneratedHardscape: (partial) => {
         get().pushHistory();
         const id = genId();
+        const isRock = partial.kind === "rock";
         const item: HardscapeItem = {
           id,
           materialId: partial.materialId ?? "",
           kind: partial.kind,
           source: partial.source,
-          position: [0, 0, 0],
-          rotation: [0, 0, 0],
-          scale: partial.scale ?? (partial.kind === "wood" ? 14 : 10),
-          seed: Math.floor(Math.random() * 1e9),
+          position: partial.position ?? [0, 0, 0],
+          // Rocks get a Y-spin + ±15% scale so placed copies aren't stamped clones.
+          rotation: [0, isRock ? Math.random() * Math.PI * 2 : 0, 0],
+          scale: partial.scale ?? (isRock ? 10 * (0.85 + Math.random() * 0.3) : 14),
+          seed: partial.seed ?? Math.floor(Math.random() * 1e9),
           drift: partial.drift,
           meshId: partial.meshId,
           color: partial.color,
           textureId: partial.textureId,
           form: partial.form,
         };
-        set((s) => ({
-          hardscape: [...s.hardscape, item],
-          selectedId: id,
-          placingMaterialId: null,
-          tool: s.tool === "place" ? "select" : s.tool,
-        }));
+        set((s) => ({ hardscape: [...s.hardscape, item], selectedId: id }));
         return id;
       },
       updateHardscape: (id, patch) => {
@@ -536,16 +549,18 @@ export const useStudioStore = create<StudioState>()(
       },
       convertToSculpt: (id) => {
         get().pushHistory();
-        const baseModel = get().baseRockModelUrl;
+        const hasModel = !!get().baseRockModelUrl;
+        const allRocks = get().useModelForAllRocks;
         set((s) => ({
           hardscape: s.hardscape.map((h) => {
             if (h.id !== id) return h;
-            // Already a non-procedural source keeps its own geometry.
-            if (h.source && h.source !== "procedural") return h;
-            // A model rock sculpts the uploaded glb mesh (not a procedural one).
-            if (baseModel && h.kind === "rock") {
+            // A model rock (placed as a model, or procedural while "use for all"
+            // is on) sculpts the uploaded glb mesh.
+            if (isModelRock(h, hasModel, allRocks)) {
               return { ...h, source: "sculpt" as const, sculptBase: "model" as const };
             }
+            // Other non-procedural sources keep their own geometry.
+            if (h.source && h.source !== "procedural") return h;
             const mat = getMaterial(h.materialId);
             const isWood = h.kind === "wood";
             const def = getRockForm(h.form ?? mat?.form);
@@ -611,19 +626,60 @@ export const useStudioStore = create<StudioState>()(
         }
         set({ baseRockModelUrl: URL.createObjectURL(blob) });
       },
+      setUseModelForAllRocks: (v) => set({ useModelForAllRocks: v }),
 
-      beginPlacing: (materialId) =>
+      beginPlacing: (spec) =>
         set({
-          placingMaterialId: materialId,
+          placing: spec,
           placingSeed: Math.floor(Math.random() * 1e9),
           tool: "place",
           activePlantId: null,
           activeGround: null,
           selectedId: null,
         }),
+      commitPlacement: (pos) => {
+        const { placing, placingSeed } = get();
+        if (!placing) return;
+        switch (placing.type) {
+          case "material":
+            get().addHardscape(placing.materialId, pos, placingSeed);
+            break;
+          case "form":
+            get().addGeneratedHardscape({
+              kind: "rock",
+              source: "procedural",
+              form: placing.form,
+              textureId: "granite",
+              position: pos,
+              seed: placingSeed,
+            });
+            break;
+          case "drift":
+            get().addGeneratedHardscape({
+              kind: "wood",
+              source: "drift",
+              materialId: "spiderwood",
+              textureId: "driftbark",
+              drift: { ...DEFAULT_DRIFT },
+              position: pos,
+              seed: placingSeed,
+            });
+            break;
+          case "model":
+            get().addGeneratedHardscape({
+              kind: "rock",
+              source: "model",
+              position: pos,
+              seed: placingSeed,
+            });
+            break;
+        }
+        // Fresh seed → the next drop is a different shape; stays armed for repeat.
+        set({ placingSeed: Math.floor(Math.random() * 1e9) });
+      },
       cancelPlacing: () =>
         set((s) => ({
-          placingMaterialId: null,
+          placing: null,
           tool: s.tool === "place" ? "select" : s.tool,
         })),
 
@@ -637,7 +693,7 @@ export const useStudioStore = create<StudioState>()(
           tool: "select",
           activePlantId: null,
           activeGround: null,
-          placingMaterialId: null,
+          placing: null,
         }),
       setTransformMode: (mode) => set({ transformMode: mode }),
 
@@ -645,7 +701,7 @@ export const useStudioStore = create<StudioState>()(
         set((s) => ({
           activePlantId: speciesId,
           activeGround: null,
-          placingMaterialId: null,
+          placing: null,
           tool: speciesId ? "plant" : "select",
           selectedId: speciesId ? null : s.selectedId,
         })),
@@ -653,7 +709,7 @@ export const useStudioStore = create<StudioState>()(
         set((s) => ({
           activeGround: type,
           activePlantId: null,
-          placingMaterialId: null,
+          placing: null,
           tool: type ? "ground" : "select",
           selectedId: type ? null : s.selectedId,
         })),
@@ -661,7 +717,7 @@ export const useStudioStore = create<StudioState>()(
         set({
           tool,
           ...(tool === "select" || tool === "trim"
-            ? { activePlantId: null, activeGround: null, placingMaterialId: null }
+            ? { activePlantId: null, activeGround: null, placing: null }
             : {}),
         }),
       setFishInteract: (m) => set({ fishInteract: m }),
@@ -999,6 +1055,7 @@ export const useStudioStore = create<StudioState>()(
         ...pruneCustomAssets(s),
         // Base .glb bytes live in IndexedDB; only the flag persists here.
         hasBaseRockModel: s.hasBaseRockModel,
+        useModelForAllRocks: s.useModelForAllRocks,
         mode: s.mode,
         quality: s.quality,
         showGuides: s.showGuides,

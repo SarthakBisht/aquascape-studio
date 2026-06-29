@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import { useStudioStore } from "@/store/useStudioStore";
 import { getMaterial } from "@/data/hardscapeMaterials";
+import { getRockForm } from "@/data/rockForms";
 import { makeRockGeometry } from "@/lib/proceduralRock";
+import { makeDriftwoodGeometry, DEFAULT_DRIFT } from "@/lib/driftwood";
+import { extractBase } from "./Hardscape";
 import type { Vec3 } from "@/lib/types";
 
 const _down = new THREE.Vector3(0, -1, 0);
@@ -36,31 +40,64 @@ function paintableTargets(from: THREE.Object3D): THREE.Object3D[] {
   return out;
 }
 
-// A translucent rock that tracks the cursor while a rock type is armed, then
-// commits on click. An invisible catcher plane covers the tank and beyond so the
-// cursor is tracked even over empty space (place "outside" the tank).
+// Translucent preview of the uploaded base .glb while the "model" stamp is armed.
+function ModelGhost({ url }: { url: string }) {
+  const { scene } = useGLTF(url);
+  const base = useMemo(() => extractBase(scene), [scene]);
+  return (
+    <mesh geometry={base.geometry} dispose={null}>
+      <meshStandardMaterial color="#9aa0a6" transparent opacity={0.45} depthWrite={false} />
+    </mesh>
+  );
+}
+
+// A translucent piece that tracks the cursor while a stamp is armed, then commits
+// on click (and STAYS armed so you can drop more — Esc cancels). One invisible
+// catcher plane covers the tank + beyond so the cursor is tracked over empty space
+// (place "outside" the tank). Preview geometry is built per placement spec.
 export function PlacementGhost() {
   const tool = useStudioStore((s) => s.tool);
-  const materialId = useStudioStore((s) => s.placingMaterialId);
+  const placing = useStudioStore((s) => s.placing);
   const seed = useStudioStore((s) => s.placingSeed);
-  const addHardscape = useStudioStore((s) => s.addHardscape);
+  const baseRockModelUrl = useStudioStore((s) => s.baseRockModelUrl);
+  const commitPlacement = useStudioStore((s) => s.commitPlacement);
   const cancelPlacing = useStudioStore((s) => s.cancelPlacing);
 
-  const material = materialId ? getMaterial(materialId) : undefined;
-  const active = tool === "place" && !!material;
+  const active = tool === "place" && !!placing;
   const [hit, setHit] = useState<Vec3 | null>(null);
 
+  // Procedural / driftwood preview (model is previewed by <ModelGhost/>).
   const geometry = useMemo(() => {
-    if (!material) return null;
-    const isWood = material.kind === "wood";
-    return makeRockGeometry(seed, {
-      jaggedness: material.jaggedness ?? (isWood ? 0.22 : 0.45),
-      detail: isWood ? 1 : 2,
-      shape: material.shape,
-      veinColor: material.veinColor,
-      strata: material.strata,
-    });
-  }, [material, seed]);
+    if (!placing) return null;
+    if (placing.type === "material") {
+      const m = getMaterial(placing.materialId);
+      if (!m) return null;
+      const isWood = m.kind === "wood";
+      return makeRockGeometry(seed, {
+        jaggedness: m.jaggedness ?? (isWood ? 0.22 : 0.45),
+        detail: isWood ? 1 : 2,
+        shape: m.shape,
+        veinColor: m.veinColor,
+        strata: m.strata,
+      });
+    }
+    if (placing.type === "form") {
+      const def = getRockForm(placing.form);
+      return makeRockGeometry(seed, {
+        primitive: def.primitive,
+        jaggedness: def.jaggedness,
+        detail: 2,
+        shape: def.shape,
+        taper: def.taper,
+        flat: def.flat,
+        strata: def.strata,
+        pitting: def.pitting,
+        pitScale: def.pitScale,
+      });
+    }
+    if (placing.type === "drift") return makeDriftwoodGeometry(seed, DEFAULT_DRIFT);
+    return null; // model
+  }, [placing, seed]);
 
   useEffect(() => () => geometry?.dispose(), [geometry]);
 
@@ -73,9 +110,17 @@ export function PlacementGhost() {
     return () => window.removeEventListener("keydown", onKey);
   }, [active, cancelPlacing]);
 
-  if (!active || !geometry || !material) return null;
+  if (!active || !placing) return null;
 
-  const scale = material.kind === "wood" ? 14 : 10;
+  const isWoodMat =
+    placing.type === "material" && getMaterial(placing.materialId)?.kind === "wood";
+  const scale = placing.type === "drift" || isWoodMat ? 14 : 10;
+  const previewColor =
+    placing.type === "material"
+      ? getMaterial(placing.materialId)?.color ?? "#888"
+      : placing.type === "drift"
+        ? "#7a5a3a"
+        : "#8a8a8a";
 
   const onMove = (e: ThreeEvent<PointerEvent>) => {
     const targets = paintableTargets(e.object);
@@ -88,8 +133,7 @@ export function PlacementGhost() {
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    const pos = (hit ?? [e.point.x, 0, e.point.z]) as Vec3;
-    addHardscape(material.id, pos, seed);
+    commitPlacement((hit ?? [e.point.x, 0, e.point.z]) as Vec3);
   };
 
   return (
@@ -105,15 +149,21 @@ export function PlacementGhost() {
       </mesh>
       {hit && (
         <group position={hit} scale={scale}>
-          <mesh geometry={geometry}>
-            <meshStandardMaterial
-              color={material.color}
-              vertexColors
-              transparent
-              opacity={0.45}
-              depthWrite={false}
-            />
-          </mesh>
+          {placing.type === "model" && baseRockModelUrl ? (
+            <Suspense fallback={null}>
+              <ModelGhost url={baseRockModelUrl} />
+            </Suspense>
+          ) : geometry ? (
+            <mesh geometry={geometry}>
+              <meshStandardMaterial
+                color={previewColor}
+                vertexColors
+                transparent
+                opacity={0.45}
+                depthWrite={false}
+              />
+            </mesh>
+          ) : null}
         </group>
       )}
     </>

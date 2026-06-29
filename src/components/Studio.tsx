@@ -205,12 +205,6 @@ export function Studio() {
         >
           <LeftRail active={section} onSelect={setSection} />
           <div className="flex-1" />
-        </div>
-        <div
-          className={`flex justify-center transition-opacity duration-500 ${
-            zen ? "pointer-events-none opacity-0" : "opacity-100"
-          }`}
-        >
           <SelectionBar />
         </div>
       </div>

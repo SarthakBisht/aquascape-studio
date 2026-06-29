@@ -43,6 +43,7 @@ import {
   pinch,
 } from "@/lib/rockSculpt";
 import { useSurfaceTexture } from "@/lib/surfaceImage";
+import { isModelRock } from "@/lib/hardscapeModel";
 import { TriplanarMaterial } from "./TriplanarMaterial";
 import type { HardscapeItem, HardscapeSurface, Vec3 } from "@/lib/types";
 
@@ -110,7 +111,7 @@ const _baseCache = new WeakMap<
   { geometry: THREE.BufferGeometry; material: THREE.Material }
 >();
 
-function extractBase(scene: THREE.Object3D) {
+export function extractBase(scene: THREE.Object3D) {
   const hit = _baseCache.get(scene);
   if (hit) return hit;
   scene.updateWorldMatrix(true, true);
@@ -322,6 +323,7 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
   const transformMode = useStudioStore((s) => s.transformMode);
   const tool = useStudioStore((s) => s.tool);
   const baseRockModelUrl = useStudioStore((s) => s.baseRockModelUrl);
+  const useModelForAllRocks = useStudioStore((s) => s.useModelForAllRocks);
   const sculptRadius = useStudioStore((s) => s.sculptRadius);
   const selectItem = useStudioStore((s) => s.selectItem);
   const updateHardscape = useStudioStore((s) => s.updateHardscape);
@@ -334,14 +336,9 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
   const editable = mode === "design";
   const isSelected = editable && selectedId === item.id;
 
-  // A user-uploaded base .glb replaces ALL plain rocks' shape (one base for all).
-  // Wood + user-made shapes (mesh/sculpt/drift) keep their own geometry.
-  // ponytail: base-model rocks use the glb's own materials; per-piece surface/
-  // color override on models is deferred.
-  const useModel =
-    !!baseRockModelUrl &&
-    item.kind === "rock" &&
-    (item.source === "procedural" || item.source == null);
+  // Render the uploaded base .glb for pieces placed as a model (source "model"),
+  // or for every procedural rock when the global toggle is on (shared predicate).
+  const useModel = isModelRock(item, !!baseRockModelUrl, useModelForAllRocks);
 
   // Per-piece sculpt overrides win, then the material default, then a kind default.
   // (mesh source → built async below from a stored height field.)
@@ -741,8 +738,9 @@ const HardscapeMesh = memo(function HardscapeMesh({ item }: { item: HardscapeIte
           </mesh>
         ) : null}
       </group>
-      {/* Gizmo is hidden while sculpting so it doesn't intercept brush drags. */}
-      {isSelected && obj && !sculptActive && (
+      {/* Gizmo hidden while sculpting (intercepts brush drags) and while a stamp
+          is armed (so repeat click-to-place isn't blocked by it). */}
+      {isSelected && obj && !sculptActive && tool !== "place" && (
         <TransformControls
           object={obj}
           mode={transformMode}

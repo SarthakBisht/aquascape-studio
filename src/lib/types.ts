@@ -52,6 +52,14 @@ export type RockForm =
   | "arch"
   | "bowl";
 
+/** What the cursor is armed to drop. Every palette stamp arms one of these, and
+ *  PlacementGhost previews + commits it the same way (ghost → click to place). */
+export type PlacementSpec =
+  | { type: "material"; materialId: string } // a library rock/wood (procedural)
+  | { type: "form"; form: RockForm } // a procedural form stamp
+  | { type: "drift" } // the driftwood generator
+  | { type: "model" }; // the uploaded base .glb (per-piece)
+
 /** A material entry in the hardscape palette (data-driven, easy to extend). */
 export interface HardscapeMaterial {
   id: string;
@@ -141,8 +149,9 @@ export interface HardscapeItem {
   seed: number;
 
   /** Geometry source. Undefined ⇒ "procedural" (legacy rocks). "sculpt" = a
-   *  procedural base that's been freely 3D-sculpted (see lib/rockSculpt.ts). */
-  source?: "procedural" | "drift" | "mesh" | "sculpt";
+   *  procedural base that's been freely 3D-sculpted (see lib/rockSculpt.ts).
+   *  "model" = renders the uploaded base .glb (per-piece). */
+  source?: "procedural" | "drift" | "mesh" | "sculpt" | "model";
 
   // ---- per-piece look overrides (fall back to the material) ----
   color?: string;
